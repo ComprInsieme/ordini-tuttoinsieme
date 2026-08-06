@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TuttoInsieme - Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #6a9c78;
+    --crema: #fdf8f0;
+    --terra: #b5651d;
+    --testo: #3a3a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #eef3ea, #fdf8f0);
+    font-family: 'Nunito', sans-serif;
+    color: var(--testo);
+    padding: 20px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 32px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    padding: 36px 30px;
+    width: 100%;
+    max-width: 380px;
+  }
+  h1 {
+    font-family: 'Baloo 2', sans-serif;
+    font-size: 1.6rem;
+    color: var(--verde);
+    margin: 0 0 6px;
+    text-align: center;
+  }
+  p.sotto {
+    text-align: center;
+    margin: 0 0 24px;
+    color: #777;
+    font-size: 0.95rem;
+  }
+  label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 6px;
+    margin-top: 16px;
+  }
+  select, input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 2px solid #e2e2e2;
+    font-size: 1rem;
+    font-family: inherit;
+  }
+  select:focus, input:focus {
+    outline: none;
+    border-color: var(--verde);
+  }
+  button {
+    width: 100%;
+    margin-top: 24px;
+    padding: 14px;
+    border: none;
+    border-radius: 20px;
+    background: var(--verde);
+    color: white;
+    font-family: 'Baloo 2', sans-serif;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.98); }
+  #errore {
+    color: #c0392b;
+    text-align: center;
+    margin-top: 14px;
+    font-weight: 600;
+    min-height: 20px;
+  }
+  #benvenuto {
+    display: none;
+    text-align: center;
+  }
+  #benvenuto h1 { color: var(--terra); }
+  .esci {
+    background: transparent;
+    color: #999;
+    text-decoration: underline;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="card" id="cardLogin">
+  <h1>TuttoInsieme</h1>
+  <p class="sotto">Accedi per vedere gli ordini aperti</p>
+
+  <label for="nome">Il tuo nome</label>
+  <select id="nome">
+    <option value="">-- scegli il tuo nome --</option>
+  </select>
+
+  <label for="pin">PIN (4 cifre)</label>
+  <input type="password" id="pin" inputmode="numeric" maxlength="4" placeholder="****">
+
+  <button onclick="login()">Entra</button>
+  <div id="errore"></div>
+</div>
+
+<div class="card" id="cardBenvenuto" style="display:none;">
+  <div id="benvenuto">
+    <h1 id="nomeBenvenuto"></h1>
+    <p class="sotto">Sei collegato/a. La sessione resta salvata su questo dispositivo.</p>
+    <button class="esci" onclick="esci()">Non sono io / Esci</button>
+  </div>
+</div>
+
+<script>
+const TOKEN_KEY = "ti_token";
+
+async function caricaElencoSoci() {
+  const risposta = await fetch("/api/elenco-soci");
+  const nomi = await risposta.json();
+  const select = document.getElementById("nome");
+  nomi.forEach(n => {
+    const opt = document.createElement("option");
+    opt.value = n;
+    opt.textContent = n;
+    select.appendChild(opt);
+  });
+}
+
+async function login() {
+  const nome = document.getElementById("nome").value;
+  const pin = document.getElementById("pin").value;
+  const errore = document.getElementById("errore");
+  errore.textContent = "";
+
+  if (!nome || !pin) {
+    errore.textContent = "Scegli il tuo nome e scrivi il PIN.";
+    return;
+  }
+
+  const risposta = await fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nome, pin }),
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    errore.textContent = dati.errore || "Nome o PIN non corretti.";
+    return;
+  }
+
+  localStorage.setItem(TOKEN_KEY, dati.token);
+  mostraBenvenuto(dati.nome);
+}
+
+function mostraBenvenuto(nome) {
+  document.getElementById("cardLogin").style.display = "none";
+  document.getElementById("cardBenvenuto").style.display = "block";
+  document.getElementById("benvenuto").style.display = "block";
+  document.getElementById("nomeBenvenuto").textContent = "Ciao, " + nome + "!";
+}
+
+function esci() {
+  localStorage.removeItem(TOKEN_KEY);
+  document.getElementById("cardBenvenuto").style.display = "none";
+  document.getElementById("cardLogin").style.display = "block";
+  document.getElementById("pin").value = "";
+}
+
+async function provaSessioneSalvata() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return false;
+
+  const risposta = await fetch("/api/sessione?token=" + encodeURIComponent(token));
+  const dati = await risposta.json();
+  if (dati.ok) {
+    mostraBenvenuto(dati.nome);
+    return true;
+  }
+  localStorage.removeItem(TOKEN_KEY);
+  return false;
+}
+
+(async function avvia() {
+  const giaDentro = await provaSessioneSalvata();
+  if (!giaDentro) {
+    await caricaElencoSoci();
+  }
+})();
+</script>
+
+</body>
+</html>
