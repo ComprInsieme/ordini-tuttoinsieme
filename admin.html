@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TuttoInsieme - Pannello Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #6a9c78;
+    --crema: #fdf8f0;
+    --terra: #b5651d;
+    --testo: #3a3a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #eef3ea, #fdf8f0);
+    font-family: 'Nunito', sans-serif;
+    color: var(--testo);
+    padding: 20px;
+  }
+  h1 {
+    font-family: 'Baloo 2', sans-serif;
+    color: var(--verde);
+    text-align: center;
+  }
+  .card {
+    background: #fff;
+    border-radius: 24px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    padding: 30px;
+    max-width: 420px;
+    margin: 60px auto;
+  }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 2px solid #e2e2e2;
+    font-size: 1rem;
+    margin-top: 10px;
+    font-family: inherit;
+  }
+  button {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    border: none;
+    border-radius: 20px;
+    background: var(--verde);
+    color: white;
+    font-family: 'Baloo 2', sans-serif;
+    font-size: 1.05rem;
+    cursor: pointer;
+  }
+  #errore {
+    color: #c0392b;
+    text-align: center;
+    margin-top: 12px;
+    font-weight: 600;
+  }
+  #pannello { display: none; max-width: 900px; margin: 0 auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9rem;
+  }
+  th {
+    background: var(--verde);
+    color: white;
+    font-family: 'Baloo 2', sans-serif;
+  }
+  .attivo { color: var(--verde); font-weight: 700; }
+  .disattivo { color: #999; }
+  .contatore {
+    text-align: center;
+    margin-bottom: 16px;
+    color: #777;
+  }
+</style>
+</head>
+<body>
+
+<div class="card" id="cardLogin">
+  <h1>Pannello Admin</h1>
+  <input type="password" id="password" placeholder="Password amministratore">
+  <button onclick="loginAdmin()">Entra</button>
+  <div id="errore"></div>
+</div>
+
+<div id="pannello">
+  <h1>Elenco Soci</h1>
+  <div class="contatore" id="contatore"></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>PIN</th>
+        <th>Socio dal</th>
+        <th>Rinnovo</th>
+        <th>Stato</th>
+      </tr>
+    </thead>
+    <tbody id="corpoTabella"></tbody>
+  </table>
+</div>
+
+<script>
+const ADMIN_TOKEN_KEY = "ti_admin_token";
+
+async function loginAdmin() {
+  const password = document.getElementById("password").value;
+  const errore = document.getElementById("errore");
+  errore.textContent = "";
+
+  if (!password) {
+    errore.textContent = "Scrivi la password.";
+    return;
+  }
+
+  const risposta = await fetch("/api/admin-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    errore.textContent = dati.errore || "Password errata.";
+    return;
+  }
+
+  localStorage.setItem(ADMIN_TOKEN_KEY, dati.token);
+  mostraPannello();
+}
+
+async function mostraPannello() {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  if (!token) return;
+
+  const risposta = await fetch("/api/admin-soci", {
+    headers: { Authorization: "Bearer " + token },
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    return;
+  }
+
+  document.getElementById("cardLogin").style.display = "none";
+  document.getElementById("pannello").style.display = "block";
+
+  const corpo = document.getElementById("corpoTabella");
+  corpo.innerHTML = "";
+  dati.soci.forEach((s) => {
+    const tr = document.createElement("tr");
+    const stato = s.attivo ? '<span class="attivo">Attivo</span>' : '<span class="disattivo">Disattivo</span>';
+    tr.innerHTML = `
+      <td>${s.nome}</td>
+      <td>${s.pin}</td>
+      <td>${s.socio_dal || ""}</td>
+      <td>${s.rinnovo_corrente || ""}</td>
+      <td>${stato}</td>
+    `;
+    corpo.appendChild(tr);
+  });
+
+  document.getElementById("contatore").textContent = dati.soci.length + " soci totali";
+}
+
+(async function avvia() {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  if (token) {
+    await mostraPannello();
+  }
+})();
+</script>
+
+</body>
+</html>
