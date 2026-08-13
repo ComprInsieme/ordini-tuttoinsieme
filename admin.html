@@ -89,6 +89,76 @@
     margin-bottom: 16px;
     color: #777;
   }
+
+  /* --- Modulo aggiungi socio --- */
+  .box-aggiungi {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .box-aggiungi h2 {
+    font-family: 'Baloo 2', sans-serif;
+    color: var(--verde);
+    margin-top: 0;
+    font-size: 1.1rem;
+  }
+  .riga-form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+  .riga-form .campo {
+    flex: 1;
+    min-width: 140px;
+  }
+  .riga-form label {
+    font-size: 0.8rem;
+    color: #777;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .riga-form input { margin-top: 0; }
+  .riga-form button {
+    width: auto;
+    margin-top: 0;
+    padding: 12px 20px;
+    white-space: nowrap;
+  }
+  #msgAggiungi {
+    margin-top: 10px;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  #msgAggiungi.ok { color: var(--verde); }
+  #msgAggiungi.errore-msg { color: #c0392b; }
+
+  /* --- Interruttore attivo/disattivo --- */
+  .interruttore {
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+    border: none;
+    position: relative;
+    cursor: pointer;
+    padding: 0;
+    background: #ccc;
+    transition: background 0.15s;
+  }
+  .interruttore.on { background: var(--verde); }
+  .interruttore .pallino {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    transition: left 0.15s;
+  }
+  .interruttore.on .pallino { left: 22px; }
 </style>
 </head>
 <body>
@@ -102,6 +172,27 @@
 
 <div id="pannello">
   <h1>Elenco Soci</h1>
+
+  <div class="box-aggiungi">
+    <h2>Aggiungi socio</h2>
+    <div class="riga-form">
+      <div class="campo">
+        <label for="nuovoNome">Nome e cognome</label>
+        <input type="text" id="nuovoNome" placeholder="Mario Rossi">
+      </div>
+      <div class="campo">
+        <label for="nuovoPin">PIN</label>
+        <input type="text" id="nuovoPin" placeholder="4 cifre" maxlength="4">
+      </div>
+      <div class="campo">
+        <label for="nuovaData">Socio dal</label>
+        <input type="date" id="nuovaData">
+      </div>
+      <button onclick="aggiungiSocio()" style="max-width: 160px;">Aggiungi</button>
+    </div>
+    <div id="msgAggiungi"></div>
+  </div>
+
   <div class="contatore" id="contatore"></div>
   <table>
     <thead>
@@ -110,7 +201,7 @@
         <th>PIN</th>
         <th>Socio dal</th>
         <th>Rinnovo</th>
-        <th>Stato</th>
+        <th>Attivo</th>
       </tr>
     </thead>
     <tbody id="corpoTabella"></tbody>
@@ -167,18 +258,89 @@ async function mostraPannello() {
   corpo.innerHTML = "";
   dati.soci.forEach((s) => {
     const tr = document.createElement("tr");
-    const stato = s.attivo ? '<span class="attivo">Attivo</span>' : '<span class="disattivo">Disattivo</span>';
     tr.innerHTML = `
       <td>${s.nome}</td>
       <td>${s.pin}</td>
       <td>${s.socio_dal || ""}</td>
       <td>${s.rinnovo_corrente || ""}</td>
-      <td>${stato}</td>
+      <td></td>
     `;
+    const cellaInterruttore = tr.lastElementChild;
+    const interruttore = document.createElement("button");
+    interruttore.className = "interruttore" + (s.attivo ? " on" : "");
+    interruttore.title = s.attivo ? "Clicca per disattivare" : "Clicca per attivare";
+    interruttore.innerHTML = '<span class="pallino"></span>';
+    interruttore.onclick = () => toggleSocio(s.id, interruttore);
+    cellaInterruttore.appendChild(interruttore);
     corpo.appendChild(tr);
   });
 
   document.getElementById("contatore").textContent = dati.soci.length + " soci totali";
+}
+
+async function toggleSocio(id, bottone) {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  bottone.disabled = true;
+
+  const risposta = await fetch("/api/admin-attiva-socio", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ id }),
+  });
+  const dati = await risposta.json();
+
+  bottone.disabled = false;
+
+  if (!dati.ok) {
+    alert(dati.errore || "Errore durante il cambio di stato.");
+    return;
+  }
+
+  bottone.classList.toggle("on", dati.attivo === 1);
+  bottone.title = dati.attivo ? "Clicca per disattivare" : "Clicca per attivare";
+}
+
+async function aggiungiSocio() {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const nome = document.getElementById("nuovoNome").value.trim();
+  const pin = document.getElementById("nuovoPin").value.trim();
+  const socio_dal = document.getElementById("nuovaData").value;
+  const msg = document.getElementById("msgAggiungi");
+  msg.textContent = "";
+  msg.className = "";
+
+  if (!nome || !pin || !socio_dal) {
+    msg.textContent = "Compila tutti i campi.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  const risposta = await fetch("/api/admin-aggiungi-socio", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ nome, pin, socio_dal }),
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    msg.textContent = dati.errore || "Errore durante l'aggiunta.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  msg.textContent = "Socio aggiunto.";
+  msg.className = "ok";
+  document.getElementById("nuovoNome").value = "";
+  document.getElementById("nuovoPin").value = "";
+  document.getElementById("nuovaData").value = "";
+
+  mostraPannello();
 }
 
 (async function avvia() {
