@@ -62,7 +62,7 @@
     margin-top: 12px;
     font-weight: 600;
   }
-  #pannello { display: none; max-width: 900px; margin: 0 auto; }
+  #pannello { display: none; max-width: 960px; margin: 0 auto; }
   table {
     width: 100%;
     border-collapse: collapse;
@@ -159,6 +159,22 @@
     transition: left 0.15s;
   }
   .interruttore.on .pallino { left: 22px; }
+
+  /* --- Pulsante elimina --- */
+  .btn-elimina {
+    width: auto;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: 12px;
+    background: #fff;
+    color: #c0392b;
+    border: 2px solid #f0d0cc;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .btn-elimina:hover { background: #fdf1ef; }
 </style>
 </head>
 <body>
@@ -202,6 +218,7 @@
         <th>Socio dal</th>
         <th>Rinnovo</th>
         <th>Attivo</th>
+        <th></th>
       </tr>
     </thead>
     <tbody id="corpoTabella"></tbody>
@@ -264,14 +281,23 @@ async function mostraPannello() {
       <td>${s.socio_dal || ""}</td>
       <td>${s.rinnovo_corrente || ""}</td>
       <td></td>
+      <td></td>
     `;
-    const cellaInterruttore = tr.lastElementChild;
+    const cellaInterruttore = tr.children[4];
     const interruttore = document.createElement("button");
     interruttore.className = "interruttore" + (s.attivo ? " on" : "");
     interruttore.title = s.attivo ? "Clicca per disattivare" : "Clicca per attivare";
     interruttore.innerHTML = '<span class="pallino"></span>';
     interruttore.onclick = () => toggleSocio(s.id, interruttore);
     cellaInterruttore.appendChild(interruttore);
+
+    const cellaElimina = tr.children[5];
+    const bottoneElimina = document.createElement("button");
+    bottoneElimina.className = "btn-elimina";
+    bottoneElimina.textContent = "Elimina";
+    bottoneElimina.onclick = () => eliminaSocio(s.id, s.nome, tr);
+    cellaElimina.appendChild(bottoneElimina);
+
     corpo.appendChild(tr);
   });
 
@@ -301,6 +327,34 @@ async function toggleSocio(id, bottone) {
 
   bottone.classList.toggle("on", dati.attivo === 1);
   bottone.title = dati.attivo ? "Clicca per disattivare" : "Clicca per attivare";
+}
+
+async function eliminaSocio(id, nome, riga) {
+  const confermato = confirm(
+    "Eliminare definitivamente " + nome + "?\n\nQuesta azione non si può annullare. Se il socio ha solo bisogno di essere sospeso, usa l'interruttore invece di eliminarlo."
+  );
+  if (!confermato) return;
+
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+
+  const risposta = await fetch("/api/admin-elimina-socio", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ id }),
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    alert(dati.errore || "Errore durante l'eliminazione.");
+    return;
+  }
+
+  riga.remove();
+  const totale = document.getElementById("corpoTabella").children.length;
+  document.getElementById("contatore").textContent = totale + " soci totali";
 }
 
 async function aggiungiSocio() {
