@@ -284,6 +284,10 @@
         <label for="nuovaDidascalia">Didascalia</label>
         <input type="text" id="nuovaDidascalia" placeholder="Testo che comparirà in cassa">
       </div>
+      <div style="display:flex; flex-direction:column; align-items:center; min-width:90px;">
+        <label style="font-size:0.75rem; color:#777; margin-bottom:4px;">Tocca saldo</label>
+        <input type="checkbox" id="nuovaToccaSaldo" checked style="width:20px; height:20px; margin:0;">
+      </div>
       <button onclick="salvaNuovoProgetto()" style="max-width: 160px;">Aggiungi</button>
     </div>
     <div id="msgProgetti"></div>
@@ -510,6 +514,10 @@ async function caricaProgetti() {
         <label>Didascalia</label>
         <input type="text" class="campo-modifica-didascalia" value="${p.didascalia || ""}">
       </div>
+      <div style="display:flex; flex-direction:column; align-items:center; min-width:90px;">
+        <label style="font-size:0.75rem; color:#777; margin-bottom:4px;">Tocca saldo</label>
+        <input type="checkbox" class="campo-modifica-tocca-saldo" ${p.tocca_saldo ? "checked" : ""} style="width:20px; height:20px; margin:0;">
+      </div>
       <button>Salva</button>
     `;
     const bottone = riga.querySelector("button");
@@ -523,6 +531,7 @@ async function salvaModificaProgetto(lettera, riga, bottone) {
   const nome_progetto = riga.querySelector(".campo-modifica-nome").value.trim();
   const percentuale = riga.querySelector(".campo-modifica-perc").value.trim();
   const didascalia = riga.querySelector(".campo-modifica-didascalia").value.trim();
+  const tocca_saldo = riga.querySelector(".campo-modifica-tocca-saldo").checked;
 
   bottone.disabled = true;
   bottone.textContent = "Salvataggio...";
@@ -533,7 +542,7 @@ async function salvaModificaProgetto(lettera, riga, bottone) {
       "Content-Type": "application/json",
       Authorization: "Bearer " + token,
     },
-    body: JSON.stringify({ lettera, nome_progetto, percentuale, didascalia }),
+    body: JSON.stringify({ lettera, nome_progetto, percentuale, didascalia, tocca_saldo }),
   });
   const dati = await risposta.json();
 
@@ -552,6 +561,7 @@ async function salvaNuovoProgetto() {
   const nome_progetto = document.getElementById("nuovoNomeProgetto").value.trim();
   const percentuale = document.getElementById("nuovaPercentuale").value.trim() || "0";
   const didascalia = document.getElementById("nuovaDidascalia").value.trim();
+  const tocca_saldo = document.getElementById("nuovaToccaSaldo").checked;
   const msg = document.getElementById("msgProgetti");
   msg.textContent = "";
   msg.className = "";
@@ -568,7 +578,7 @@ async function salvaNuovoProgetto() {
       "Content-Type": "application/json",
       Authorization: "Bearer " + token,
     },
-    body: JSON.stringify({ lettera, nome_progetto, percentuale, didascalia }),
+    body: JSON.stringify({ lettera, nome_progetto, percentuale, didascalia, tocca_saldo }),
   });
   const dati = await risposta.json();
 
@@ -584,6 +594,7 @@ async function salvaNuovoProgetto() {
   document.getElementById("nuovoNomeProgetto").value = "";
   document.getElementById("nuovaPercentuale").value = "";
   document.getElementById("nuovaDidascalia").value = "";
+  document.getElementById("nuovaToccaSaldo").checked = true;
 
   caricaProgetti();
 }
