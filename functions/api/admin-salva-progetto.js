@@ -39,6 +39,7 @@ export async function onRequestPost(context) {
   const nome_progetto = (dati.nome_progetto || "").trim();
   const percentuale = parseFloat(dati.percentuale);
   const didascalia = (dati.didascalia || "").trim();
+  const tocca_saldo = dati.tocca_saldo ? 1 : 0;
 
   if (!lettera || lettera.length > 3) {
     return new Response(
@@ -63,14 +64,15 @@ export async function onRequestPost(context) {
 
   // INSERT OR REPLACE: se la lettera esiste già la aggiorna, altrimenti la crea
   await env.DB.prepare(
-    `INSERT INTO progetti (lettera, nome_progetto, percentuale, didascalia)
-     VALUES (?, ?, ?, ?)
+    `INSERT INTO progetti (lettera, nome_progetto, percentuale, didascalia, tocca_saldo)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(lettera) DO UPDATE SET
        nome_progetto = excluded.nome_progetto,
        percentuale = excluded.percentuale,
-       didascalia = excluded.didascalia`
+       didascalia = excluded.didascalia,
+       tocca_saldo = excluded.tocca_saldo`
   )
-    .bind(lettera, nome_progetto, percentuale, didascalia || null)
+    .bind(lettera, nome_progetto, percentuale, didascalia || null, tocca_saldo)
     .run();
 
   return new Response(JSON.stringify({ ok: true }), {
