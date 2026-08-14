@@ -175,6 +175,60 @@
     cursor: pointer;
   }
   .btn-elimina:hover { background: #fdf1ef; }
+
+  /* --- Pannello progetti/letterine --- */
+  .box-progetti {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .box-progetti h2 {
+    font-family: 'Baloo 2', sans-serif;
+    color: var(--verde);
+    margin-top: 0;
+    font-size: 1.1rem;
+  }
+  .riga-progetto {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+  }
+  .riga-progetto:last-of-type { border-bottom: none; }
+  .riga-progetto .campo-lettera { width: 70px; }
+  .riga-progetto .campo-nome { flex: 1; min-width: 130px; }
+  .riga-progetto .campo-perc { width: 100px; }
+  .riga-progetto .campo-didascalia { flex: 2; min-width: 220px; }
+  .riga-progetto label {
+    font-size: 0.75rem;
+    color: #777;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .riga-progetto input { margin-top: 0; padding: 8px 10px; }
+  .riga-progetto button {
+    width: auto;
+    margin-top: 0;
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  .riga-nuovo-progetto {
+    border-top: 2px dashed #ddd;
+    margin-top: 6px;
+    padding-top: 16px;
+  }
+  #msgProgetti {
+    margin-top: 10px;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  #msgProgetti.ok { color: var(--verde); }
+  #msgProgetti.errore-msg { color: #c0392b; }
 </style>
 </head>
 <body>
@@ -207,6 +261,32 @@
       <button onclick="aggiungiSocio()" style="max-width: 160px;">Aggiungi</button>
     </div>
     <div id="msgAggiungi"></div>
+  </div>
+
+  <div class="box-progetti">
+    <h2>Progetti / Letterine</h2>
+    <div id="elencoProgetti"></div>
+
+    <div class="riga-progetto riga-nuovo-progetto">
+      <div class="campo-lettera">
+        <label for="nuovaLettera">Lettera</label>
+        <input type="text" id="nuovaLettera" maxlength="3" placeholder="Y">
+      </div>
+      <div class="campo-nome">
+        <label for="nuovoNomeProgetto">Nome progetto</label>
+        <input type="text" id="nuovoNomeProgetto" placeholder="Nome nuovo progetto">
+      </div>
+      <div class="campo-perc">
+        <label for="nuovaPercentuale">Percentuale %</label>
+        <input type="text" id="nuovaPercentuale" placeholder="0">
+      </div>
+      <div class="campo-didascalia">
+        <label for="nuovaDidascalia">Didascalia</label>
+        <input type="text" id="nuovaDidascalia" placeholder="Testo che comparirà in cassa">
+      </div>
+      <button onclick="salvaNuovoProgetto()" style="max-width: 160px;">Aggiungi</button>
+    </div>
+    <div id="msgProgetti"></div>
   </div>
 
   <div class="contatore" id="contatore"></div>
@@ -252,6 +332,7 @@ async function loginAdmin() {
 
   localStorage.setItem(ADMIN_TOKEN_KEY, dati.token);
   mostraPannello();
+  caricaProgetti();
 }
 
 async function mostraPannello() {
@@ -397,10 +478,121 @@ async function aggiungiSocio() {
   mostraPannello();
 }
 
+async function caricaProgetti() {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const risposta = await fetch("/api/admin-progetti", {
+    headers: { Authorization: "Bearer " + token },
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) return;
+
+  const contenitore = document.getElementById("elencoProgetti");
+  contenitore.innerHTML = "";
+
+  dati.progetti.forEach((p) => {
+    const riga = document.createElement("div");
+    riga.className = "riga-progetto";
+    riga.innerHTML = `
+      <div class="campo-lettera">
+        <label>Lettera</label>
+        <input type="text" value="${p.lettera}" disabled style="background:#f5f5f5;">
+      </div>
+      <div class="campo-nome">
+        <label>Nome progetto</label>
+        <input type="text" class="campo-modifica-nome" value="${p.nome_progetto}">
+      </div>
+      <div class="campo-perc">
+        <label>Percentuale %</label>
+        <input type="text" class="campo-modifica-perc" value="${p.percentuale}">
+      </div>
+      <div class="campo-didascalia">
+        <label>Didascalia</label>
+        <input type="text" class="campo-modifica-didascalia" value="${p.didascalia || ""}">
+      </div>
+      <button>Salva</button>
+    `;
+    const bottone = riga.querySelector("button");
+    bottone.onclick = () => salvaModificaProgetto(p.lettera, riga, bottone);
+    contenitore.appendChild(riga);
+  });
+}
+
+async function salvaModificaProgetto(lettera, riga, bottone) {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const nome_progetto = riga.querySelector(".campo-modifica-nome").value.trim();
+  const percentuale = riga.querySelector(".campo-modifica-perc").value.trim();
+  const didascalia = riga.querySelector(".campo-modifica-didascalia").value.trim();
+
+  bottone.disabled = true;
+  bottone.textContent = "Salvataggio...";
+
+  const risposta = await fetch("/api/admin-salva-progetto", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ lettera, nome_progetto, percentuale, didascalia }),
+  });
+  const dati = await risposta.json();
+
+  bottone.disabled = false;
+  bottone.textContent = "Salva";
+
+  if (!dati.ok) {
+    alert(dati.errore || "Errore durante il salvataggio.");
+    return;
+  }
+}
+
+async function salvaNuovoProgetto() {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const lettera = document.getElementById("nuovaLettera").value.trim();
+  const nome_progetto = document.getElementById("nuovoNomeProgetto").value.trim();
+  const percentuale = document.getElementById("nuovaPercentuale").value.trim() || "0";
+  const didascalia = document.getElementById("nuovaDidascalia").value.trim();
+  const msg = document.getElementById("msgProgetti");
+  msg.textContent = "";
+  msg.className = "";
+
+  if (!lettera || !nome_progetto) {
+    msg.textContent = "Compila almeno lettera e nome progetto.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  const risposta = await fetch("/api/admin-salva-progetto", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ lettera, nome_progetto, percentuale, didascalia }),
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    msg.textContent = dati.errore || "Errore durante l'aggiunta.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  msg.textContent = "Progetto aggiunto.";
+  msg.className = "ok";
+  document.getElementById("nuovaLettera").value = "";
+  document.getElementById("nuovoNomeProgetto").value = "";
+  document.getElementById("nuovaPercentuale").value = "";
+  document.getElementById("nuovaDidascalia").value = "";
+
+  caricaProgetti();
+}
+
 (async function avvia() {
   const token = localStorage.getItem(ADMIN_TOKEN_KEY);
   if (token) {
     await mostraPannello();
+    await caricaProgetti();
   }
 })();
 </script>
