@@ -229,6 +229,111 @@
   }
   #msgProgetti.ok { color: var(--verde); }
   #msgProgetti.errore-msg { color: #c0392b; }
+
+  /* --- Importa Ordine --- */
+  .box-importa {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .box-importa h2 {
+    font-family: 'Baloo 2', sans-serif;
+    color: var(--verde);
+    margin-top: 0;
+    font-size: 1.1rem;
+  }
+  .griglia-importa {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .griglia-importa .campo-largo { grid-column: 1 / -1; }
+  .griglia-importa label {
+    font-size: 0.8rem;
+    color: #777;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .griglia-importa input, .griglia-importa select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 2px solid #e2e2e2;
+    font-family: inherit;
+    font-size: 0.95rem;
+  }
+  .btn-importa-azione {
+    width: auto;
+    margin-top: 0;
+    padding: 12px 22px;
+    font-size: 0.95rem;
+  }
+  #msgImporta {
+    margin-top: 12px;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  #msgImporta.ok { color: var(--verde); }
+  #msgImporta.errore-msg { color: #c0392b; }
+
+  .tabella-abbinamento {
+    margin-top: 20px;
+    border-top: 2px dashed #ddd;
+    padding-top: 16px;
+  }
+  .riga-abbinamento {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    flex-wrap: wrap;
+  }
+  .riga-abbinamento .nome-scritto {
+    flex: 1;
+    min-width: 160px;
+    font-weight: 600;
+  }
+  .riga-abbinamento .totale-scritto {
+    width: 90px;
+    color: #555;
+  }
+  .riga-abbinamento .stato-abbinamento {
+    flex: 2;
+    min-width: 220px;
+  }
+  .badge-riconosciuto {
+    background: #e6f2ea;
+    color: var(--verde);
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .badge-saltato {
+    background: #f0f0f0;
+    color: #888;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+  }
+  .riga-abbinamento select {
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 2px solid #e2e2e2;
+    font-family: inherit;
+    max-width: 260px;
+  }
+  .riepilogo-import {
+    background: var(--crema);
+    border-radius: 12px;
+    padding: 14px;
+    margin-top: 16px;
+    font-size: 0.9rem;
+  }
 </style>
 </head>
 <body>
@@ -291,6 +396,37 @@
       <button onclick="salvaNuovoProgetto()" style="max-width: 160px;">Aggiungi</button>
     </div>
     <div id="msgProgetti"></div>
+  </div>
+
+  <div class="box-importa">
+    <h2>Importa ordine in Cassa</h2>
+    <div class="griglia-importa">
+      <div class="campo-largo">
+        <label for="importaNomeOrdine">Nome ordine (es. "WITT del 12-08-2026")</label>
+        <input type="text" id="importaNomeOrdine" placeholder="Nome ordine">
+      </div>
+      <div>
+        <label for="importaLettera">Letterina / progetto</label>
+        <select id="importaLettera"></select>
+      </div>
+      <div></div>
+      <div>
+        <label for="importaLink1">Link report (1° gruppo, es. soci 1-15)</label>
+        <input type="text" id="importaLink1" placeholder="https://...">
+      </div>
+      <div>
+        <label for="importaLink2">Link report (2° gruppo, facoltativo, es. soci 16-30)</label>
+        <input type="text" id="importaLink2" placeholder="https://... (lascia vuoto se non serve)">
+      </div>
+    </div>
+    <button class="btn-importa-azione" onclick="leggiReportOrdine()">Leggi report →</button>
+    <div id="msgImporta"></div>
+
+    <div id="areaAbbinamento" style="display:none;">
+      <div class="tabella-abbinamento" id="tabellaAbbinamento"></div>
+      <div class="riepilogo-import" id="riepilogoImport"></div>
+      <button class="btn-importa-azione" onclick="confermaImportazione()" style="margin-top:14px; background: var(--terra);">Conferma importazione in Cassa</button>
+    </div>
   </div>
 
   <div class="contatore" id="contatore"></div>
@@ -599,11 +735,251 @@ async function salvaNuovoProgetto() {
   caricaProgetti();
 }
 
+// ===== IMPORTA ORDINE =====
+
+// Tiene in memoria, tra un passo e l'altro, l'elenco soci e gli abbinamenti
+// scelti dall'admin, così "Conferma importazione" sa cosa scrivere in Cassa.
+let elencoAbbinamento = [];
+let elencoSociGlobale = [];
+
+async function popolaMenuLettere() {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const risposta = await fetch("/api/admin-progetti", {
+    headers: { Authorization: "Bearer " + token },
+  });
+  const dati = await risposta.json();
+  if (!dati.ok) return;
+
+  const select = document.getElementById("importaLettera");
+  select.innerHTML = "";
+  dati.progetti.forEach((p) => {
+    const opzione = document.createElement("option");
+    opzione.value = p.lettera;
+    opzione.textContent = p.lettera + " — " + p.nome_progetto;
+    select.appendChild(opzione);
+  });
+}
+
+async function leggiReportOrdine() {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const nome_ordine = document.getElementById("importaNomeOrdine").value.trim();
+  const link1 = document.getElementById("importaLink1").value.trim();
+  const link2 = document.getElementById("importaLink2").value.trim();
+  const msg = document.getElementById("msgImporta");
+  msg.textContent = "";
+  msg.className = "";
+  document.getElementById("areaAbbinamento").style.display = "none";
+
+  if (!nome_ordine || !link1) {
+    msg.textContent = "Servono almeno il nome ordine e il primo link.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  msg.textContent = "Lettura del report in corso...";
+
+  // Passo 1: leggo i CSV e ottengo l'elenco soci con i totali
+  const rispostaLettura = await fetch("/api/admin-leggi-report", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ link1, link2 }),
+  });
+  const datiLettura = await rispostaLettura.json();
+
+  if (!datiLettura.ok) {
+    msg.textContent = datiLettura.errore || "Errore durante la lettura del report.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  if (datiLettura.soci_trovati.length === 0) {
+    msg.textContent = "Nessun socio con un ordine trovato in questo report.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  // Passo 2: provo ad abbinare ogni nome scritto a un socio vero
+  const rispostaAbbina = await fetch("/api/admin-risolvi-nomi", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ soci_trovati: datiLettura.soci_trovati }),
+  });
+  const datiAbbina = await rispostaAbbina.json();
+
+  if (!datiAbbina.ok) {
+    msg.textContent = datiAbbina.errore || "Errore durante l'abbinamento dei nomi.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  elencoSociGlobale = datiAbbina.elenco_soci;
+  elencoAbbinamento = datiAbbina.risultato.map((r) => ({
+    nome_scritto: r.nome_scritto,
+    totale: r.totale,
+    socio_id: r.socio_id, // null se non riconosciuto
+    saltato: false,
+  }));
+
+  msg.textContent = "";
+  document.getElementById("areaAbbinamento").style.display = "block";
+  disegnaTabellaAbbinamento();
+}
+
+function disegnaTabellaAbbinamento() {
+  const contenitore = document.getElementById("tabellaAbbinamento");
+  contenitore.innerHTML = "";
+
+  elencoAbbinamento.forEach((riga, indice) => {
+    const div = document.createElement("div");
+    div.className = "riga-abbinamento";
+
+    const totaleTesto = riga.totale.toFixed(2).replace(".", ",");
+
+    let statoHtml = "";
+    if (riga.saltato) {
+      statoHtml = '<span class="badge-saltato">Saltato — non importato</span>';
+    } else if (riga.socio_id) {
+      const socioTrovato = elencoSociGlobale.find((s) => s.id === riga.socio_id);
+      const nomeSocio = socioTrovato ? socioTrovato.nome : "id " + riga.socio_id;
+      statoHtml = '<span class="badge-riconosciuto">✓ ' + nomeSocio + "</span>";
+    } else {
+      statoHtml = costruisciSelectAbbinamento(indice);
+    }
+
+    div.innerHTML = `
+      <div class="nome-scritto">${riga.nome_scritto}</div>
+      <div class="totale-scritto">€ ${totaleTesto}</div>
+      <div class="stato-abbinamento" data-indice="${indice}">${statoHtml}</div>
+    `;
+    contenitore.appendChild(div);
+
+    // Se ho appena disegnato una select, collego l'evento di cambio
+    if (!riga.socio_id && !riga.saltato) {
+      const select = div.querySelector("select");
+      select.onchange = () => scegliAbbinamento(indice, select.value);
+    }
+  });
+
+  aggiornaRiepilogoImport();
+}
+
+function costruisciSelectAbbinamento(indice) {
+  let opzioni = '<option value="">— scegli socio o salta —</option>';
+  opzioni += '<option value="salta">Salta (socio non ancora tesserato / da ignorare)</option>';
+  elencoSociGlobale.forEach((s) => {
+    opzioni += `<option value="${s.id}">${s.nome}</option>`;
+  });
+  return `<select>${opzioni}</select>`;
+}
+
+async function scegliAbbinamento(indice, valoreScelto) {
+  if (!valoreScelto) return;
+
+  if (valoreScelto === "salta") {
+    elencoAbbinamento[indice].saltato = true;
+    disegnaTabellaAbbinamento();
+    return;
+  }
+
+  const socio_id = parseInt(valoreScelto, 10);
+  elencoAbbinamento[indice].socio_id = socio_id;
+
+  // Salvo subito il soprannome, così le prossime volte viene riconosciuto da solo
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  await fetch("/api/admin-salva-soprannome", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({
+      soprannome: elencoAbbinamento[indice].nome_scritto,
+      socio_id,
+    }),
+  });
+
+  disegnaTabellaAbbinamento();
+}
+
+function aggiornaRiepilogoImport() {
+  const riconosciuti = elencoAbbinamento.filter((r) => r.socio_id && !r.saltato).length;
+  const daAbbinare = elencoAbbinamento.filter((r) => !r.socio_id && !r.saltato).length;
+  const saltati = elencoAbbinamento.filter((r) => r.saltato).length;
+
+  document.getElementById("riepilogoImport").innerHTML =
+    `<strong>${riconosciuti}</strong> pronti per l'importazione, ` +
+    `<strong>${daAbbinare}</strong> ancora da abbinare, ` +
+    `<strong>${saltati}</strong> saltati.`;
+}
+
+async function confermaImportazione() {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const nome_ordine = document.getElementById("importaNomeOrdine").value.trim();
+  const lettera = document.getElementById("importaLettera").value;
+  const msg = document.getElementById("msgImporta");
+
+  const daAbbinare = elencoAbbinamento.filter((r) => !r.socio_id && !r.saltato);
+  if (daAbbinare.length > 0) {
+    msg.textContent = "Ci sono ancora " + daAbbinare.length + " soci da abbinare o saltare prima di importare.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  const righeDaImportare = elencoAbbinamento
+    .filter((r) => r.socio_id && !r.saltato)
+    .map((r) => ({ socio_id: r.socio_id, totale: r.totale }));
+
+  if (righeDaImportare.length === 0) {
+    msg.textContent = "Nessuna riga da importare (tutte saltate).";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  const confermato = confirm(
+    `Confermi l'importazione di ${righeDaImportare.length} righe per l'ordine "${nome_ordine}" (progetto ${lettera})?\n\nQuesta azione scrive dati permanenti in Cassa.`
+  );
+  if (!confermato) return;
+
+  msg.textContent = "Importazione in corso...";
+  msg.className = "";
+
+  const risposta = await fetch("/api/admin-importa-ordine", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ nome_ordine, lettera, righe: righeDaImportare }),
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    msg.textContent = dati.errore || "Errore durante l'importazione.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  msg.textContent = "Importazione completata: " + dati.righe_importate + " righe scritte in Cassa.";
+  msg.className = "ok";
+  document.getElementById("areaAbbinamento").style.display = "none";
+  document.getElementById("importaNomeOrdine").value = "";
+  document.getElementById("importaLink1").value = "";
+  document.getElementById("importaLink2").value = "";
+  elencoAbbinamento = [];
+}
+
 (async function avvia() {
   const token = localStorage.getItem(ADMIN_TOKEN_KEY);
   if (token) {
     await mostraPannello();
     await caricaProgetti();
+    await popolaMenuLettere();
   }
 })();
 </script>
