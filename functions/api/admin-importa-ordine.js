@@ -99,10 +99,19 @@ export async function onRequestPost(context) {
       ? Math.round((importo_prodotto + maggiorazione) * 100) / 100
       : importo_prodotto;
 
+    // Il dettaglio prodotti (facoltativo) viene salvato come testo JSON,
+    // così lo scontrino può mostrare, per ogni ordine, cosa è stato
+    // comprato e a quale prezzo già scontato — utile a chi divide la
+    // spesa con altre persone.
+    const dettaglio_prodotti =
+      Array.isArray(riga.prodotti) && riga.prodotti.length > 0
+        ? JSON.stringify(riga.prodotti)
+        : null;
+
     await env.DB.prepare(
       `INSERT INTO righe_cassa
-        (socio_id, data, descrizione, tipo, importo_prodotto, lettera, maggiorazione, importo_totale, ordine_origine)
-       VALUES (?, ?, ?, 'spesa', ?, ?, ?, ?, ?)`
+        (socio_id, data, descrizione, tipo, importo_prodotto, lettera, maggiorazione, importo_totale, ordine_origine, dettaglio_prodotti)
+       VALUES (?, ?, ?, 'spesa', ?, ?, ?, ?, ?, ?)`
     )
       .bind(
         socio_id,
@@ -112,7 +121,8 @@ export async function onRequestPost(context) {
         lettera,
         maggiorazione,
         importo_totale,
-        nome_ordine
+        nome_ordine,
+        dettaglio_prodotti
       )
       .run();
 
