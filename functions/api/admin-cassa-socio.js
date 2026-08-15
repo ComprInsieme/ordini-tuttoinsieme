@@ -63,7 +63,19 @@ export async function onRequestGet(context) {
     // Le spese scalano il saldo, i versamenti lo aumentano.
     const movimento = r.tipo === "versamento" ? r.importo_totale : -r.importo_totale;
     saldoProgressivo = Math.round((saldoProgressivo + movimento) * 100) / 100;
-    return { ...r, saldo_dopo: saldoProgressivo };
+
+    // Il dettaglio prodotti è salvato come testo JSON; lo trasformo
+    // in un elenco vero, pronto da mostrare, se presente.
+    let prodotti = null;
+    if (r.dettaglio_prodotti) {
+      try {
+        prodotti = JSON.parse(r.dettaglio_prodotti);
+      } catch {
+        prodotti = null;
+      }
+    }
+
+    return { ...r, saldo_dopo: saldoProgressivo, prodotti };
   });
 
   // Calcolo anche i totali per letterina (utile per il riepilogo colonne nascoste)
