@@ -21,45 +21,79 @@ function dividiRigaCsv(riga) {
   return colonne;
 }
 
+// Trasforma un testo tipo "€47,50" nel numero 47.50
+function testoInNumero(testo) {
+  if (!testo) return null;
+  const numero = parseFloat(
+    testo.replace("€", "").replace(".", "").replace(",", ".").trim()
+  );
+  return isNaN(numero) ? null : numero;
+}
+
 // Legge un CSV di report (formato "REPORT ORDINI") e restituisce un elenco
-// di { nome_scritto, totale } per ogni socio che ha ordinato qualcosa.
-// Ignora i blocchi vuoti ("— —" oppure totale mancante).
+// di { nome_scritto, totale, prodotti } per ogni socio che ha ordinato
+// qualcosa. "prodotti" contiene, per ogni articolo, il prezzo già scontato
+// del 4% (colonna G) — quello che il socio deve chiedere a chi divide
+// con lui la spesa. Ignora i blocchi vuoti ("— —" oppure totale mancante).
 function interpretaReportCsv(testoCsv) {
   const righe = testoCsv.split("\n").map((r) => r.trim());
   const risultati = [];
 
   let nomeCorrente = null;
+  let prodottiCorrente = [];
 
   for (const riga of righe) {
     if (!riga) continue;
 
     const colonne = dividiRigaCsv(riga);
     const primaColonna = (colonne[0] || "").trim();
+    const secondaColonna = (colonne[1] || "").trim();
+    const quartaColonna = (colonne[3] || "").trim();
 
     // Riconosco una riga intestazione socio: es. "— Anna e Mario —"
     const matchIntestazione = primaColonna.match(/^—\s*(.*?)\s*—$/);
     if (matchIntestazione) {
       nomeCorrente = matchIntestazione[1].trim();
+      prodottiCorrente = [];
       continue;
     }
 
-    // Riconosco la riga totale: contiene "TOTALE →"
+    // Riga "Totale merce (per contributo 4%)": non ci interessa, la salto
+    if (quartaColonna.startsWith("Totale merce")) {
+      continue;
+    }
+
+    // Riconosco la riga totale definitivo: contiene "TOTALE" tutto maiuscolo
     if (riga.includes("TOTALE") && nomeCorrente) {
-      // La colonna F (indice 5) contiene il totale, es. "€47,50" oppure vuota
       const totaleTesto = (colonne[5] || "").trim();
+      const numero = testoInNumero(totaleTesto);
 
-      if (totaleTesto) {
-        // Trasformo "€47,50" in 47.50
-        const numero = parseFloat(
-          totaleTesto.replace("€", "").replace(".", "").replace(",", ".").trim()
-        );
-
-        if (!isNaN(numero) && numero > 0) {
-          risultati.push({ nome_scritto: nomeCorrente, totale: numero });
-        }
+      if (numero && numero > 0) {
+        risultati.push({
+          nome_scritto: nomeCorrente,
+          totale: numero,
+          prodotti: prodottiCorrente,
+        });
       }
 
-      nomeCorrente = null; // chiudo il blocco, pronto per il prossimo
+      nomeCorrente = null;
+      prodottiCorrente = [];
+      continue;
+    }
+
+    // Se sono dentro un blocco socio e la riga ha un prodotto vero
+    // (colonna B non vuota, non è "nessun prodotto ordinato"), la registro.
+    if (nomeCorrente && secondaColonna && secondaColonna !== "(nessun prodotto ordinato)") {
+      const prezzoScontato = testoInNumero((colonne[6] || "").trim());
+      const prezzoNetto = testoInNumero((colonne[5] || "").trim());
+      prodottiCorrente.push({
+        codice: primaColonna,
+        prodotto: secondaColonna,
+        formato: (colonne[2] || "").trim(),
+        quantita: (colonne[4] || "").trim(),
+        prezzo_netto: prezzoNetto,
+        prezzo_scontato: prezzoScontato !== null ? prezzoScontato : prezzoNetto,
+      });
     }
   }
 
