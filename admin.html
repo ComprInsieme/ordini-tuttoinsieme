@@ -340,6 +340,167 @@
     margin-top: 16px;
     font-size: 0.9rem;
   }
+
+  /* --- Foglio Cassa --- */
+  .box-cassa {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .box-cassa h2 {
+    font-family: 'Baloo 2', sans-serif;
+    color: var(--verde);
+    margin-top: 0;
+    font-size: 1.1rem;
+  }
+  .riga-scelta-socio {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .riga-scelta-socio .campo { flex: 1; min-width: 200px; }
+  .riga-scelta-socio label {
+    font-size: 0.8rem;
+    color: #777;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .riga-scelta-socio select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 2px solid #e2e2e2;
+    font-family: inherit;
+    font-size: 0.95rem;
+  }
+  .riga-scelta-socio button {
+    width: auto;
+    margin-top: 0;
+    padding: 11px 20px;
+  }
+
+  #areaScontrino { display: none; }
+  .intestazione-scontrino {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--verde);
+    color: #fff;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 4px;
+  }
+  .intestazione-scontrino .nome-socio {
+    font-family: 'Baloo 2', sans-serif;
+    font-size: 1.1rem;
+  }
+  .intestazione-scontrino .saldo-attuale {
+    font-family: 'Baloo 2', sans-serif;
+    font-size: 1.3rem;
+  }
+  .fascia-lettere {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 10px 0 16px;
+  }
+  .chip-lettera {
+    background: var(--crema);
+    border: 1px solid #e6ddc9;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    color: var(--testo);
+  }
+  .chip-lettera strong { color: var(--terra); }
+
+  .contenitore-scontrino {
+    max-height: 55vh;
+    overflow-y: auto;
+    border-radius: 12px;
+    border: 1px solid #eee;
+  }
+  .riga-scontrino {
+    display: grid;
+    grid-template-columns: 90px 1fr 90px 90px;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.88rem;
+    align-items: start;
+  }
+  .riga-scontrino.versamento { background: #f3f9f4; }
+  .riga-scontrino .data-scontrino { color: #888; }
+  .riga-scontrino .descrizione-scontrino .nota-maggiorazione {
+    display: block;
+    font-size: 0.78rem;
+    color: #888;
+    margin-top: 2px;
+  }
+  .riga-scontrino .importo-scontrino {
+    text-align: right;
+    font-weight: 600;
+  }
+  .riga-scontrino .importo-scontrino.negativo { color: #c0392b; }
+  .riga-scontrino .importo-scontrino.positivo { color: var(--verde); }
+  .riga-scontrino .saldo-scontrino {
+    text-align: right;
+    color: #555;
+  }
+  .intestazione-scontrino-colonne {
+    display: grid;
+    grid-template-columns: 90px 1fr 90px 90px;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 0.78rem;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .box-nuovo-versamento {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 2px dashed #ddd;
+  }
+  .riga-versamento-form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+  .riga-versamento-form .campo { flex: 1; min-width: 130px; }
+  .riga-versamento-form label {
+    font-size: 0.8rem;
+    color: #777;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .riga-versamento-form input, .riga-versamento-form select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 2px solid #e2e2e2;
+    font-family: inherit;
+    font-size: 0.95rem;
+  }
+  .riga-versamento-form button {
+    width: auto;
+    margin-top: 0;
+    padding: 11px 20px;
+    white-space: nowrap;
+  }
+  #msgVersamento {
+    margin-top: 10px;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  #msgVersamento.ok { color: var(--verde); }
+  #msgVersamento.errore-msg { color: #c0392b; }
 </style>
 </head>
 <body>
@@ -432,6 +593,60 @@
       <div class="tabella-abbinamento" id="tabellaAbbinamento"></div>
       <div class="riepilogo-import" id="riepilogoImport"></div>
       <button class="btn-importa-azione" onclick="confermaImportazione()" style="margin-top:14px; background: var(--terra);">Conferma importazione in Cassa</button>
+    </div>
+  </div>
+
+  <div class="box-cassa">
+    <h2>Foglio Cassa</h2>
+    <div class="riga-scelta-socio">
+      <div class="campo">
+        <label for="cassaSceltaSocio">Scegli socio</label>
+        <select id="cassaSceltaSocio"></select>
+      </div>
+      <button onclick="apriCassaSocio()">Apri cassa →</button>
+    </div>
+
+    <div id="areaScontrino">
+      <div class="intestazione-scontrino">
+        <div class="nome-socio" id="cassaNomeSocio"></div>
+        <div class="saldo-attuale" id="cassaSaldoAttuale"></div>
+      </div>
+      <div class="fascia-lettere" id="cassaFasciaLettere"></div>
+
+      <div class="intestazione-scontrino-colonne">
+        <div>Data</div>
+        <div>Descrizione</div>
+        <div style="text-align:right;">Importo</div>
+        <div style="text-align:right;">Saldo</div>
+      </div>
+      <div class="contenitore-scontrino" id="contenitoreScontrino"></div>
+
+      <div class="box-nuovo-versamento">
+        <div class="riga-versamento-form">
+          <div class="campo">
+            <label for="versamentoData">Data</label>
+            <input type="date" id="versamentoData">
+          </div>
+          <div class="campo">
+            <label for="versamentoImporto">Importo €</label>
+            <input type="text" id="versamentoImporto" placeholder="es. 50">
+          </div>
+          <div class="campo">
+            <label for="versamentoMetodo">Metodo</label>
+            <select id="versamentoMetodo">
+              <option value="contanti">Contanti</option>
+              <option value="paypal">PayPal</option>
+              <option value="bonifico">Bonifico</option>
+            </select>
+          </div>
+          <div class="campo" style="flex:2;">
+            <label for="versamentoNota">Nota (facoltativa)</label>
+            <input type="text" id="versamentoNota" placeholder="es. Versamento di cassa">
+          </div>
+          <button onclick="aggiungiVersamento()">Aggiungi versamento</button>
+        </div>
+        <div id="msgVersamento"></div>
+      </div>
     </div>
   </div>
 
@@ -1012,12 +1227,163 @@ async function confermaImportazione() {
   elencoAbbinamento = [];
 }
 
+// ===== FOGLIO CASSA =====
+
+let socioCassaAperta = null; // id del socio attualmente mostrato in cassa
+
+async function popolaMenuSociCassa() {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const risposta = await fetch("/api/admin-soci", {
+    headers: { Authorization: "Bearer " + token },
+  });
+  const dati = await risposta.json();
+  if (!dati.ok) return;
+
+  const select = document.getElementById("cassaSceltaSocio");
+  select.innerHTML = "";
+  dati.soci
+    .slice()
+    .sort((a, b) => a.nome.localeCompare(b.nome))
+    .forEach((s) => {
+      const opzione = document.createElement("option");
+      opzione.value = s.id;
+      opzione.textContent = s.nome;
+      select.appendChild(opzione);
+    });
+}
+
+async function apriCassaSocio() {
+  const socio_id = document.getElementById("cassaSceltaSocio").value;
+  if (!socio_id) return;
+  await caricaCassaSocio(socio_id);
+}
+
+async function caricaCassaSocio(socio_id) {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const risposta = await fetch("/api/admin-cassa-socio?socio_id=" + socio_id, {
+    headers: { Authorization: "Bearer " + token },
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    alert(dati.errore || "Errore durante il caricamento della cassa.");
+    return;
+  }
+
+  socioCassaAperta = socio_id;
+  document.getElementById("cassaSceltaSocio").value = socio_id;
+  document.getElementById("areaScontrino").style.display = "block";
+  document.getElementById("cassaNomeSocio").textContent = dati.socio.nome;
+
+  const saldoTesto = dati.saldo_attuale.toFixed(2).replace(".", ",");
+  document.getElementById("cassaSaldoAttuale").textContent = "Saldo: € " + saldoTesto;
+
+  // Fascia con i totali per letterina (le "colonne nascoste" richieste)
+  const fascia = document.getElementById("cassaFasciaLettere");
+  fascia.innerHTML = "";
+  Object.keys(dati.totali_per_lettera).forEach((lettera) => {
+    const importo = dati.totali_per_lettera[lettera].toFixed(2).replace(".", ",");
+    const chip = document.createElement("div");
+    chip.className = "chip-lettera";
+    chip.innerHTML = `<strong>${lettera}</strong>: € ${importo}`;
+    fascia.appendChild(chip);
+  });
+
+  disegnaScontrino(dati.righe);
+}
+
+function disegnaScontrino(righe) {
+  const contenitore = document.getElementById("contenitoreScontrino");
+  contenitore.innerHTML = "";
+
+  righe.forEach((r) => {
+    const div = document.createElement("div");
+    div.className = "riga-scontrino" + (r.tipo === "versamento" ? " versamento" : "");
+
+    const dataItaliana = formattaDataItaliana(r.data);
+    const importoTesto = r.importo_totale.toFixed(2).replace(".", ",");
+    const saldoTesto = r.saldo_dopo.toFixed(2).replace(".", ",");
+    const segno = r.tipo === "versamento" ? "+" : "-";
+    const classeImporto = r.tipo === "versamento" ? "positivo" : "negativo";
+
+    let notaMaggiorazione = "";
+    if (r.lettera && r.maggiorazione) {
+      const maggTesto = r.maggiorazione.toFixed(2).replace(".", ",");
+      const didasc = r.didascalia || (r.nome_progetto || r.lettera);
+      notaMaggiorazione = `<span class="nota-maggiorazione">${r.lettera} — ${didasc}: € ${maggTesto}</span>`;
+    }
+
+    div.innerHTML = `
+      <div class="data-scontrino">${dataItaliana}</div>
+      <div class="descrizione-scontrino">${r.descrizione}${notaMaggiorazione}</div>
+      <div class="importo-scontrino ${classeImporto}">${segno} € ${importoTesto}</div>
+      <div class="saldo-scontrino">€ ${saldoTesto}</div>
+    `;
+    contenitore.appendChild(div);
+  });
+
+  // Si apre mostrando subito l'ultima riga (il movimento più recente)
+  contenitore.scrollTop = contenitore.scrollHeight;
+}
+
+async function aggiungiVersamento() {
+  if (!socioCassaAperta) return;
+
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const data = document.getElementById("versamentoData").value;
+  const importo = document.getElementById("versamentoImporto").value.trim();
+  const metodo_pagamento = document.getElementById("versamentoMetodo").value;
+  const nota = document.getElementById("versamentoNota").value.trim();
+  const msg = document.getElementById("msgVersamento");
+  msg.textContent = "";
+  msg.className = "";
+
+  if (!data || !importo) {
+    msg.textContent = "Servono almeno data e importo.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  const descrizione = nota || "Versamento";
+
+  const risposta = await fetch("/api/admin-aggiungi-versamento", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({
+      socio_id: socioCassaAperta,
+      data,
+      descrizione,
+      importo,
+      metodo_pagamento,
+    }),
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    msg.textContent = dati.errore || "Errore durante l'aggiunta del versamento.";
+    msg.className = "errore-msg";
+    return;
+  }
+
+  msg.textContent = "Versamento aggiunto.";
+  msg.className = "ok";
+  document.getElementById("versamentoImporto").value = "";
+  document.getElementById("versamentoNota").value = "";
+
+  // Ricarico la cassa per mostrare subito il nuovo movimento
+  caricaCassaSocio(socioCassaAperta);
+}
+
 (async function avvia() {
   const token = localStorage.getItem(ADMIN_TOKEN_KEY);
   if (token) {
     await mostraPannello();
     await caricaProgetti();
     await popolaMenuLettere();
+    await popolaMenuSociCassa();
   }
 })();
 </script>
