@@ -75,6 +75,7 @@ export async function onRequestPost(context) {
     return {
       nome_scritto: riga.nome_scritto,
       totale: riga.totale,
+      prodotti: riga.prodotti || null,
       socio_id: socio_id, // null se non riconosciuto
     };
   });
