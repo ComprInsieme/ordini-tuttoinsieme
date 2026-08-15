@@ -63,13 +63,16 @@
     font-weight: 600;
   }
   #pannello { display: none; max-width: 960px; margin: 0 auto; }
+  .contenitore-tabella {
+    background: #fff;
+    border-radius: 16px;
+    overflow-y: auto;
+    max-height: 65vh;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  }
   table {
     width: 100%;
     border-collapse: collapse;
-    background: #fff;
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
   }
   th, td {
     padding: 10px 12px;
@@ -433,23 +436,36 @@
   </div>
 
   <div class="contatore" id="contatore"></div>
-  <table>
-    <thead>
-      <tr>
-        <th>Nome</th>
-        <th>PIN</th>
-        <th>Socio dal</th>
-        <th>Rinnovo</th>
-        <th>Attivo</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody id="corpoTabella"></tbody>
-  </table>
+  <div class="contenitore-tabella">
+    <table>
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>PIN</th>
+          <th>Socio dal</th>
+          <th>Rinnovo</th>
+          <th>Attivo</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="corpoTabella"></tbody>
+    </table>
+  </div>
 </div>
 
 <script>
 const ADMIN_TOKEN_KEY = "ti_admin_token";
+
+// Converte una data AAAA-MM-GG (formato del database) in GG/MM/AAAA
+// (formato italiano), solo per la visualizzazione. Se la data manca
+// o non è nel formato atteso, restituisce una stringa vuota.
+function formattaDataItaliana(dataIso) {
+  if (!dataIso) return "";
+  const parti = dataIso.split("-");
+  if (parti.length !== 3) return dataIso;
+  const [anno, mese, giorno] = parti;
+  return `${giorno}/${mese}/${anno}`;
+}
 
 async function loginAdmin() {
   const password = document.getElementById("password").value;
@@ -502,8 +518,8 @@ async function mostraPannello() {
     tr.innerHTML = `
       <td>${s.nome}</td>
       <td>${s.pin}</td>
-      <td>${s.socio_dal || ""}</td>
-      <td>${s.rinnovo_corrente || ""}</td>
+      <td>${formattaDataItaliana(s.socio_dal)}</td>
+      <td>${formattaDataItaliana(s.rinnovo_corrente)}</td>
       <td></td>
       <td></td>
     `;
