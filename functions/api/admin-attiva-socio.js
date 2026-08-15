@@ -37,6 +37,7 @@ export async function onRequestPost(context) {
   }
 
   const id = dati.id;
+  const data_rinnovo = (dati.data_rinnovo || "").trim(); // usata solo quando si riattiva
 
   if (!id) {
     return new Response(JSON.stringify({ errore: "Id socio mancante" }), {
@@ -61,12 +62,29 @@ export async function onRequestPost(context) {
 
   // 4. Ribalto lo stato: se era 1 diventa 0, se era 0 diventa 1
   const nuovoStato = socio.attivo === 1 ? 0 : 1;
+  const staRiattivando = nuovoStato === 1;
 
-  await env.DB.prepare(
-    "UPDATE soci SET attivo = ? WHERE id = ?"
-  )
-    .bind(nuovoStato, id)
-    .run();
+  if (staRiattivando && data_rinnovo) {
+    // Riattivazione con rinnovo: aggiorno stato E data insieme
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data_rinnovo)) {
+      return new Response(
+        JSON.stringify({ errore: "Data di rinnovo non valida" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    await env.DB.prepare(
+      "UPDATE soci SET attivo = ?, rinnovo_corrente = ? WHERE id = ?"
+    )
+      .bind(nuovoStato, data_rinnovo, id)
+      .run();
+  } else {
+    // Disattivazione (o riattivazione senza data specificata): tocco solo lo stato
+    await env.DB.prepare(
+      "UPDATE soci SET attivo = ? WHERE id = ?"
+    )
+      .bind(nuovoStato, id)
+      .run();
+  }
 
   return new Response(JSON.stringify({ ok: true, attivo: nuovoStato }), {
     status: 200,
