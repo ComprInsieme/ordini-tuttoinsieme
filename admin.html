@@ -601,7 +601,7 @@
     <div class="riga-scelta-socio">
       <div class="campo">
         <label for="cassaSceltaSocio">Scegli socio</label>
-        <select id="cassaSceltaSocio"></select>
+        <select id="cassaSceltaSocio" onchange="document.getElementById('areaScontrino').style.display='none';"></select>
       </div>
       <button onclick="apriCassaSocio()">Apri cassa →</button>
     </div>
@@ -1075,6 +1075,7 @@ async function leggiReportOrdine() {
   elencoAbbinamento = datiAbbina.risultato.map((r) => ({
     nome_scritto: r.nome_scritto,
     totale: r.totale,
+    prodotti: r.prodotti || null,
     socio_id: r.socio_id, // null se non riconosciuto
     saltato: false,
   }));
@@ -1186,7 +1187,7 @@ async function confermaImportazione() {
 
   const righeDaImportare = elencoAbbinamento
     .filter((r) => r.socio_id && !r.saltato)
-    .map((r) => ({ socio_id: r.socio_id, totale: r.totale }));
+    .map((r) => ({ socio_id: r.socio_id, totale: r.totale, prodotti: r.prodotti }));
 
   if (righeDaImportare.length === 0) {
     msg.textContent = "Nessuna riga da importare (tutte saltate).";
@@ -1296,7 +1297,7 @@ function disegnaScontrino(righe) {
   const contenitore = document.getElementById("contenitoreScontrino");
   contenitore.innerHTML = "";
 
-  righe.forEach((r) => {
+  righe.forEach((r, indice) => {
     const div = document.createElement("div");
     div.className = "riga-scontrino" + (r.tipo === "versamento" ? " versamento" : "");
 
@@ -1313,13 +1314,40 @@ function disegnaScontrino(righe) {
       notaMaggiorazione = `<span class="nota-maggiorazione">${r.lettera} — ${didasc}: € ${maggTesto}</span>`;
     }
 
+    // Se ci sono prodotti, aggiungo un piccolo link per aprire/chiudere il dettaglio
+    let linkDettaglio = "";
+    const idDettaglio = "dettaglio-riga-" + indice;
+    if (r.prodotti && r.prodotti.length > 0) {
+      linkDettaglio = `<span class="nota-maggiorazione" style="cursor:pointer; color: var(--terra); text-decoration: underline;" onclick="document.getElementById('${idDettaglio}').style.display = document.getElementById('${idDettaglio}').style.display === 'none' ? 'block' : 'none';">Vedi ${r.prodotti.length} prodotti acquistati ▾</span>`;
+    }
+
     div.innerHTML = `
       <div class="data-scontrino">${dataItaliana}</div>
-      <div class="descrizione-scontrino">${r.descrizione}${notaMaggiorazione}</div>
+      <div class="descrizione-scontrino">${r.descrizione}${notaMaggiorazione}${linkDettaglio}</div>
       <div class="importo-scontrino ${classeImporto}">${segno} € ${importoTesto}</div>
       <div class="saldo-scontrino">€ ${saldoTesto}</div>
     `;
     contenitore.appendChild(div);
+
+    // Riga aggiuntiva, nascosta di default, con l'elenco prodotti già scontati
+    if (r.prodotti && r.prodotti.length > 0) {
+      const rigaDettaglio = document.createElement("div");
+      rigaDettaglio.id = idDettaglio;
+      rigaDettaglio.style.cssText =
+        "display:none; grid-column: 1 / -1; background:#faf8f3; padding:10px 14px 10px 100px; font-size:0.85rem; border-bottom:1px solid #f0f0f0;";
+      rigaDettaglio.innerHTML = r.prodotti
+        .map((p) => {
+          const prezzo = (p.prezzo_scontato != null ? p.prezzo_scontato : p.prezzo_netto || 0)
+            .toFixed(2)
+            .replace(".", ",");
+          return `<div style="display:flex; justify-content:space-between; padding:2px 0;">
+            <span>${p.prodotto}${p.formato && p.formato !== "-" ? " (" + p.formato + ")" : ""} × ${p.quantita}</span>
+            <span>€ ${prezzo}</span>
+          </div>`;
+        })
+        .join("");
+      contenitore.appendChild(rigaDettaglio);
+    }
   });
 
   // Si apre mostrando subito l'ultima riga (il movimento più recente)
