@@ -81,6 +81,9 @@
     background: var(--verde);
     color: white;
     font-family: 'Baloo 2', sans-serif;
+    position: sticky;
+    top: 0;
+    z-index: 5;
   }
   .attivo { color: var(--verde); font-weight: 700; }
   .disattivo { color: #999; }
@@ -527,6 +530,19 @@ async function mostraPannello() {
 
 async function toggleSocio(id, bottone) {
   const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const staAttivando = !bottone.classList.contains("on"); // era spento, sto per accenderlo
+
+  let data_rinnovo = "";
+  if (staAttivando) {
+    const oggi = new Date().toISOString().slice(0, 10);
+    const dataInserita = prompt(
+      "Data di rinnovo/iscrizione (formato AAAA-MM-GG):",
+      oggi
+    );
+    if (dataInserita === null) return; // ha annullato, non facciamo nulla
+    data_rinnovo = dataInserita.trim();
+  }
+
   bottone.disabled = true;
 
   const risposta = await fetch("/api/admin-attiva-socio", {
@@ -535,7 +551,7 @@ async function toggleSocio(id, bottone) {
       "Content-Type": "application/json",
       Authorization: "Bearer " + token,
     },
-    body: JSON.stringify({ id }),
+    body: JSON.stringify({ id, data_rinnovo }),
   });
   const dati = await risposta.json();
 
@@ -548,6 +564,12 @@ async function toggleSocio(id, bottone) {
 
   bottone.classList.toggle("on", dati.attivo === 1);
   bottone.title = dati.attivo ? "Clicca per disattivare" : "Clicca per attivare";
+
+  // Se ho appena riattivato con una nuova data, ricarico la tabella
+  // per mostrare subito la data di rinnovo aggiornata.
+  if (staAttivando) {
+    mostraPannello();
+  }
 }
 
 async function eliminaSocio(id, nome, riga) {
