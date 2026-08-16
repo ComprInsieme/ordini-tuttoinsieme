@@ -108,6 +108,16 @@ export async function onRequestPost(context) {
         ? JSON.stringify(riga.prodotti)
         : null;
 
+    // Se il nome scritto nell'ordine termina con un numero (es. "Maria 1",
+    // "Maria 2" — un socio che ordina anche per sorella/amica nello stesso
+    // foglio), lo aggiungo alla descrizione così le due righe si distinguono
+    // subito in Cassa, non solo dall'importo.
+    const nomeScritto = (riga.nome_scritto || "").trim();
+    const eOrdineNumerato = /\d\s*$/.test(nomeScritto);
+    const descrizione = eOrdineNumerato
+      ? `${nome_ordine} — ${nomeScritto.toUpperCase()}`
+      : nome_ordine;
+
     await env.DB.prepare(
       `INSERT INTO righe_cassa
         (socio_id, data, descrizione, tipo, importo_prodotto, lettera, maggiorazione, importo_totale, ordine_origine, dettaglio_prodotti)
@@ -116,7 +126,7 @@ export async function onRequestPost(context) {
       .bind(
         socio_id,
         data_oggi,
-        nome_ordine,
+        descrizione,
         importo_prodotto,
         lettera,
         maggiorazione,
