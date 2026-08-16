@@ -25,15 +25,16 @@ export async function onRequestGet(context) {
     });
   }
 
-  // Tutte le righe di spesa non ancora ritirate, con il nome del socio,
-  // in ordine di data (le più vecchie per prime, così si vede subito
-  // chi aspetta da più tempo).
+  // Tutte le righe di spesa non ancora ritirate, con il nome del socio.
+  // Ordinate prima per nome (così quando un socio si presenta, tutti i
+  // suoi ritiri in sospeso sono raggruppati insieme, non sparsi tra
+  // quelli di altri soci), poi per data (le più vecchie per prime).
   const righe = await env.DB.prepare(
     `SELECT r.id, r.socio_id, r.data, r.descrizione, r.importo_totale, s.nome AS nome_socio
      FROM righe_cassa r
      JOIN soci s ON r.socio_id = s.id
      WHERE r.tipo = 'spesa' AND r.ritirato = 0
-     ORDER BY r.data ASC, r.id ASC`
+     ORDER BY s.nome ASC, r.data ASC, r.id ASC`
   ).all();
 
   return new Response(JSON.stringify({ ok: true, righe: righe.results }), {
