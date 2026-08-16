@@ -62,14 +62,30 @@ export async function onRequestPost(context) {
     mappaNomiSoci[s.nome.trim().toLowerCase()] = s.id;
   });
 
+  // Cerca l'id socio per una chiave (soprannome o nome esatto, minuscolo)
+  function trovaSocioPerChiave(chiave) {
+    if (mappaSoprannomi[chiave] !== undefined) return mappaSoprannomi[chiave];
+    if (mappaNomiSoci[chiave] !== undefined) return mappaNomiSoci[chiave];
+    return null;
+  }
+
   const risultato = soci_trovati.map((riga) => {
     const chiave = (riga.nome_scritto || "").trim().toLowerCase();
 
-    let socio_id = null;
-    if (mappaSoprannomi[chiave] !== undefined) {
-      socio_id = mappaSoprannomi[chiave];
-    } else if (mappaNomiSoci[chiave] !== undefined) {
-      socio_id = mappaNomiSoci[chiave];
+    let socio_id = trovaSocioPerChiave(chiave);
+
+    // Se non trovato, e il nome finisce con un numero (es. "Maria 1",
+    // "Maria2"), riprovo togliendo il numero: capita spesso quando un
+    // socio fa più ordini distinti nello stesso foglio (per sé, per la
+    // sorella, per un'amica) numerandoli per tenerli separati.
+    if (socio_id === null) {
+      const matchNumero = chiave.match(/^(.*?)\s*\d+$/);
+      if (matchNumero) {
+        const chiaveBase = matchNumero[1].trim();
+        if (chiaveBase) {
+          socio_id = trovaSocioPerChiave(chiaveBase);
+        }
+      }
     }
 
     return {
