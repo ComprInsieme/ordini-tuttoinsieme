@@ -1187,7 +1187,12 @@ async function confermaImportazione() {
 
   const righeDaImportare = elencoAbbinamento
     .filter((r) => r.socio_id && !r.saltato)
-    .map((r) => ({ socio_id: r.socio_id, totale: r.totale, prodotti: r.prodotti }));
+    .map((r) => ({
+      socio_id: r.socio_id,
+      totale: r.totale,
+      prodotti: r.prodotti,
+      nome_scritto: r.nome_scritto,
+    }));
 
   if (righeDaImportare.length === 0) {
     msg.textContent = "Nessuna riga da importare (tutte saltate).";
