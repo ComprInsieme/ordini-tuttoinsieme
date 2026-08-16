@@ -326,6 +326,23 @@
     border-radius: 10px;
     font-size: 0.85rem;
   }
+  .badge-dedotto {
+    background: #fdf1e0;
+    color: var(--terra);
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-block;
+    margin-bottom: 4px;
+  }
+  .link-correggi-dedotto {
+    display: block;
+    font-size: 0.78rem;
+    color: #888;
+    cursor: pointer;
+    text-decoration: underline;
+  }
   .riga-abbinamento select {
     padding: 6px 10px;
     border-radius: 10px;
@@ -869,6 +886,25 @@ async function aggiungiSocio() {
   document.getElementById("nuovaData").value = "";
 
   mostraPannello();
+
+  // Se c'è un'importazione ordine in corso (abbinamento nomi ancora aperto),
+  // aggiorno l'elenco soci usato dalle tendine senza perdere il lavoro già
+  // fatto — così il socio appena tesserato compare subito, senza dover
+  // ricominciare l'abbinamento da capo.
+  const areaAbbinamentoAperta = document.getElementById("areaAbbinamento").style.display !== "none";
+  if (areaAbbinamentoAperta) {
+    const rispostaSoci = await fetch("/api/admin-soci", {
+      headers: { Authorization: "Bearer " + token },
+    });
+    const datiSoci = await rispostaSoci.json();
+    if (datiSoci.ok) {
+      elencoSociGlobale = datiSoci.soci;
+      disegnaTabellaAbbinamento();
+    }
+  }
+
+  // Aggiorno anche la tendina del Foglio Cassa, per lo stesso motivo
+  await popolaMenuSociCassa();
 }
 
 async function caricaProgetti() {
@@ -1077,6 +1113,8 @@ async function leggiReportOrdine() {
     totale: r.totale,
     prodotti: r.prodotti || null,
     socio_id: r.socio_id, // null se non riconosciuto
+    dedotto_da_numero: r.dedotto_da_numero || false,
+    nome_base_dedotto: r.nome_base_dedotto || null,
     saltato: false,
   }));
 
@@ -1098,12 +1136,17 @@ function disegnaTabellaAbbinamento() {
     let statoHtml = "";
     if (riga.saltato) {
       statoHtml = '<span class="badge-saltato">Saltato — non importato</span>';
-    } else if (riga.socio_id) {
+    } else if (riga.socio_id && !riga.dedotto_da_numero) {
+      // Abbinamento certo: soprannome salvato o nome esatto
       const socioTrovato = elencoSociGlobale.find((s) => s.id === riga.socio_id);
       const nomeSocio = socioTrovato ? socioTrovato.nome : "id " + riga.socio_id;
       statoHtml = '<span class="badge-riconosciuto">✓ ' + nomeSocio + "</span>";
     } else {
-      statoHtml = costruisciSelectAbbinamento(indice);
+      // Non riconosciuto, oppure dedotto togliendo un numero (es. "Maria 2"):
+      // in entrambi i casi mostro sempre una tendina, pre-selezionata con il
+      // suggerimento se c'è — così l'ultima parola resta sempre a chi importa,
+      // utile con nomi simili tra loro (es. Maria, Mariarosa, Rosa).
+      statoHtml = costruisciSelectAbbinamento(indice, riga.socio_id);
     }
 
     div.innerHTML = `
@@ -1114,20 +1157,21 @@ function disegnaTabellaAbbinamento() {
     contenitore.appendChild(div);
 
     // Se ho appena disegnato una select, collego l'evento di cambio
-    if (!riga.socio_id && !riga.saltato) {
-      const select = div.querySelector("select");
-      select.onchange = () => scegliAbbinamento(indice, select.value);
+    const selectDisegnata = div.querySelector("select");
+    if (selectDisegnata) {
+      selectDisegnata.onchange = () => scegliAbbinamento(indice, selectDisegnata.value);
     }
   });
 
   aggiornaRiepilogoImport();
 }
 
-function costruisciSelectAbbinamento(indice) {
+function costruisciSelectAbbinamento(indice, socioPreselezionato) {
   let opzioni = '<option value="">— scegli socio o salta —</option>';
   opzioni += '<option value="salta">Salta (socio non ancora tesserato / da ignorare)</option>';
   elencoSociGlobale.forEach((s) => {
-    opzioni += `<option value="${s.id}">${s.nome}</option>`;
+    const selezionato = socioPreselezionato && s.id === socioPreselezionato ? " selected" : "";
+    opzioni += `<option value="${s.id}"${selezionato}>${s.nome}</option>`;
   });
   return `<select>${opzioni}</select>`;
 }
