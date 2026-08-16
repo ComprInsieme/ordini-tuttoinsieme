@@ -518,6 +518,47 @@
   }
   #msgVersamento.ok { color: var(--verde); }
   #msgVersamento.errore-msg { color: #c0392b; }
+
+  /* --- Popup scelta soprannome --- */
+  .overlay-popup {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .box-popup {
+    background: #fff;
+    border-radius: 20px;
+    padding: 28px;
+    max-width: 420px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  }
+  .box-popup h3 {
+    font-family: 'Baloo 2', sans-serif;
+    color: var(--verde);
+    margin-top: 0;
+  }
+  .box-popup p { font-size: 0.95rem; line-height: 1.4; }
+  .box-popup .riga-pulsanti-popup {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .box-popup button {
+    width: auto;
+    margin-top: 0;
+    padding: 12px 16px;
+    font-size: 0.9rem;
+    flex: 1;
+  }
+  .btn-popup-secondario {
+    background: #fff !important;
+    color: var(--terra) !important;
+    border: 2px solid var(--terra) !important;
+  }
 </style>
 </head>
 <body>
@@ -1192,13 +1233,26 @@ async function scegliAbbinamento(indice, valoreScelto) {
   const selectEl = elencoSociGlobale.find((s) => s.id === socio_id);
   const nomeSocio = selectEl ? selectEl.nome : "questo socio";
 
-  const ricordaPerSempre = confirm(
-    `Ricordare "${nomeScritto}" = ${nomeSocio} anche per le prossime volte?\n\n` +
-    `OK = ricorda per sempre (la volta prossima verrà riconosciuto da solo)\n` +
-    `Annulla = solo per questa importazione (te lo richiederò di nuovo la prossima volta — utile se questo nome potrebbe appartenere a soci diversi in momenti diversi)`
-  );
+  mostraPopupRicorda(nomeScritto, nomeSocio, socio_id);
+}
 
-  if (ricordaPerSempre) {
+function mostraPopupRicorda(nomeScritto, nomeSocio, socio_id) {
+  const overlay = document.createElement("div");
+  overlay.className = "overlay-popup";
+  overlay.innerHTML = `
+    <div class="box-popup">
+      <h3>Ricordare questo abbinamento?</h3>
+      <p>Hai indicato che <strong>"${nomeScritto}"</strong> corrisponde a <strong>${nomeSocio}</strong>.</p>
+      <p>Vuoi che me lo ricordi anche per le prossime volte, o solo per questa importazione?</p>
+      <div class="riga-pulsanti-popup">
+        <button id="btnRicordaSempre">Ricorda sempre</button>
+        <button id="btnSoloOraPopup" class="btn-popup-secondario">Solo questa volta</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  document.getElementById("btnRicordaSempre").onclick = async () => {
     const token = localStorage.getItem(ADMIN_TOKEN_KEY);
     await fetch("/api/admin-salva-soprannome", {
       method: "POST",
@@ -1208,9 +1262,14 @@ async function scegliAbbinamento(indice, valoreScelto) {
       },
       body: JSON.stringify({ soprannome: nomeScritto, socio_id }),
     });
-  }
+    overlay.remove();
+    disegnaTabellaAbbinamento();
+  };
 
-  disegnaTabellaAbbinamento();
+  document.getElementById("btnSoloOraPopup").onclick = () => {
+    overlay.remove();
+    disegnaTabellaAbbinamento();
+  };
 }
 
 function aggiornaRiepilogoImport() {
@@ -1382,7 +1441,9 @@ function disegnaScontrino(righe) {
       <div class="data-scontrino">${dataItaliana}</div>
       <div class="descrizione-scontrino">${r.descrizione}${notaMaggiorazione}${linkDettaglio}</div>
       <div class="importo-scontrino ${classeImporto}">${segno} € ${importoTesto}</div>
-      <div class="saldo-scontrino">€ ${saldoTesto}</div>
+      <div class="saldo-scontrino">€ ${saldoTesto}
+        <span title="Elimina questa riga" style="cursor:pointer; color:#c0392b; margin-left:6px; font-weight:700;" onclick="eliminaRigaCassa(${r.id})">✕</span>
+      </div>
     `;
     contenitore.appendChild(div);
 
@@ -1460,6 +1521,34 @@ async function aggiungiVersamento() {
 
   // Ricarico la cassa per mostrare subito il nuovo movimento
   caricaCassaSocio(socioCassaAperta);
+}
+
+async function eliminaRigaCassa(id) {
+  const confermato = confirm(
+    "Eliminare definitivamente questa riga dalla Cassa?\n\nQuesta azione non si può annullare. Il saldo si ricalcolerà automaticamente sulle righe rimanenti."
+  );
+  if (!confermato) return;
+
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const risposta = await fetch("/api/admin-elimina-riga-cassa", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ id }),
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    alert(dati.errore || "Errore durante l'eliminazione.");
+    return;
+  }
+
+  // Ricarico la cassa per mostrare il saldo aggiornato
+  if (socioCassaAperta) {
+    caricaCassaSocio(socioCassaAperta);
+  }
 }
 
 (async function avvia() {
