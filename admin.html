@@ -708,6 +708,12 @@
     </div>
   </div>
 
+  <div class="box-cassa">
+    <h2>Ritiri da effettuare</h2>
+    <p style="color:#888; font-size:0.85rem; margin-top:-8px;">Tutti gli ordini pagati ma non ancora ritirati, di qualsiasi data — restano qui finché non li segni come ritirati.</p>
+    <div id="elencoRitiriPendenti"></div>
+  </div>
+
   <div class="contatore" id="contatore"></div>
   <div class="contenitore-tabella">
     <table>
@@ -1437,9 +1443,19 @@ function disegnaScontrino(righe) {
       linkDettaglio = `<span class="nota-maggiorazione" style="cursor:pointer; color: var(--terra); text-decoration: underline;" onclick="document.getElementById('${idDettaglio}').style.display = document.getElementById('${idDettaglio}').style.display === 'none' ? 'block' : 'none';">Vedi ${r.prodotti.length} prodotti acquistati ▾</span>`;
     }
 
+    // Solo le spese (non i versamenti) possono essere "ritirate"
+    let badgeRitirato = "";
+    if (r.tipo === "spesa") {
+      if (r.ritirato) {
+        badgeRitirato = `<span class="nota-maggiorazione" style="color: var(--verde);">✓ Ritirato</span>`;
+      } else {
+        badgeRitirato = `<span class="nota-maggiorazione" style="cursor:pointer; color: var(--terra); text-decoration: underline;" onclick="segnaRitirato(${r.id})">Segna come ritirato</span>`;
+      }
+    }
+
     div.innerHTML = `
       <div class="data-scontrino">${dataItaliana}</div>
-      <div class="descrizione-scontrino">${r.descrizione}${notaMaggiorazione}${linkDettaglio}</div>
+      <div class="descrizione-scontrino">${r.descrizione}${notaMaggiorazione}${linkDettaglio}${badgeRitirato}</div>
       <div class="importo-scontrino ${classeImporto}">${segno} € ${importoTesto}</div>
       <div class="saldo-scontrino">€ ${saldoTesto}
         <span title="Elimina questa riga" style="cursor:pointer; color:#c0392b; margin-left:6px; font-weight:700;" onclick="eliminaRigaCassa(${r.id})">✕</span>
@@ -1551,6 +1567,81 @@ async function eliminaRigaCassa(id) {
   }
 }
 
+async function segnaRitirato(id) {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const risposta = await fetch("/api/admin-segna-ritirato", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ id }),
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    alert(dati.errore || "Errore durante la conferma del ritiro.");
+    return;
+  }
+
+  // Ricarico la cassa per mostrare il nuovo stato (e le righe precedenti,
+  // segnate a cascata, se presenti)
+  if (socioCassaAperta) {
+    caricaCassaSocio(socioCassaAperta);
+  }
+}
+
+// ===== RITIRI DA EFFETTUARE =====
+
+async function caricaRitiriPendenti() {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  const contenitore = document.getElementById("elencoRitiriPendenti");
+  contenitore.innerHTML = "<p style='color:#888; font-size:0.9rem;'>Carico...</p>";
+
+  const risposta = await fetch("/api/admin-ritiri-pendenti", {
+    headers: { Authorization: "Bearer " + token },
+  });
+  const dati = await risposta.json();
+
+  if (!dati.ok) {
+    contenitore.innerHTML = "<p style='color:#c0392b;'>Errore durante il caricamento.</p>";
+    return;
+  }
+
+  if (dati.righe.length === 0) {
+    contenitore.innerHTML = "<p style='color:#888; font-size:0.9rem;'>Nessun ritiro in sospeso — tutto ritirato!</p>";
+    return;
+  }
+
+  contenitore.innerHTML = "";
+  dati.righe.forEach((r) => {
+    const div = document.createElement("div");
+    div.className = "riga-abbinamento";
+    const dataItaliana = formattaDataItaliana(r.data);
+    const importoTesto = r.importo_totale.toFixed(2).replace(".", ",");
+    div.innerHTML = `
+      <div class="nome-scritto">${r.nome_socio}</div>
+      <div style="flex:2; color:#666; font-size:0.9rem;">${dataItaliana} — ${r.descrizione}</div>
+      <div class="totale-scritto">€ ${importoTesto}</div>
+      <button style="width:auto; margin:0; padding:8px 14px; font-size:0.85rem;" onclick="segnaRitiratoDaElenco(${r.id})">Segna ritirato</button>
+    `;
+    contenitore.appendChild(div);
+  });
+}
+
+async function segnaRitiratoDaElenco(id) {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  await fetch("/api/admin-segna-ritirato", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ id }),
+  });
+  caricaRitiriPendenti();
+}
+
 (async function avvia() {
   const token = localStorage.getItem(ADMIN_TOKEN_KEY);
   if (token) {
@@ -1558,6 +1649,7 @@ async function eliminaRigaCassa(id) {
     await caricaProgetti();
     await popolaMenuLettere();
     await popolaMenuSociCassa();
+    await caricaRitiriPendenti();
   }
 })();
 </script>
