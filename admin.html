@@ -1142,21 +1142,29 @@ async function scegliAbbinamento(indice, valoreScelto) {
   }
 
   const socio_id = parseInt(valoreScelto, 10);
+  const nomeScritto = elencoAbbinamento[indice].nome_scritto;
   elencoAbbinamento[indice].socio_id = socio_id;
 
-  // Salvo subito il soprannome, così le prossime volte viene riconosciuto da solo
-  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
-  await fetch("/api/admin-salva-soprannome", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "Bearer " + token,
-    },
-    body: JSON.stringify({
-      soprannome: elencoAbbinamento[indice].nome_scritto,
-      socio_id,
-    }),
-  });
+  const selectEl = elencoSociGlobale.find((s) => s.id === socio_id);
+  const nomeSocio = selectEl ? selectEl.nome : "questo socio";
+
+  const ricordaPerSempre = confirm(
+    `Ricordare "${nomeScritto}" = ${nomeSocio} anche per le prossime volte?\n\n` +
+    `OK = ricorda per sempre (la volta prossima verrà riconosciuto da solo)\n` +
+    `Annulla = solo per questa importazione (te lo richiederò di nuovo la prossima volta — utile se questo nome potrebbe appartenere a soci diversi in momenti diversi)`
+  );
+
+  if (ricordaPerSempre) {
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+    await fetch("/api/admin-salva-soprannome", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
+      },
+      body: JSON.stringify({ soprannome: nomeScritto, socio_id }),
+    });
+  }
 
   disegnaTabellaAbbinamento();
 }
