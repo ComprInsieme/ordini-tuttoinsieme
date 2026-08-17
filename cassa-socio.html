@@ -22,23 +22,23 @@
     color: var(--testo);
     padding: 20px;
   }
-  .contenitore { max-width: 480px; margin: 0 auto; }
+  .contenitore { max-width: 540px; margin: 0 auto; }
   .intestazione {
     background: var(--verde);
     color: white;
     border-radius: 24px;
-    padding: 24px;
+    padding: 26px;
     text-align: center;
     box-shadow: 0 8px 30px rgba(0,0,0,0.08);
   }
   .intestazione h1 {
     font-family: 'Baloo 2', sans-serif;
     margin: 0 0 4px;
-    font-size: 1.4rem;
+    font-size: 1.5rem;
   }
   .intestazione .saldo {
     font-family: 'Baloo 2', sans-serif;
-    font-size: 2rem;
+    font-size: 2.2rem;
     margin-top: 8px;
   }
   .scontrino {
@@ -46,13 +46,14 @@
     border-radius: 24px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.08);
     margin-top: 16px;
-    padding: 8px 20px;
-    max-height: 65vh;
+    padding: 10px 22px;
+    max-height: 68vh;
     overflow-y: auto;
+    font-size: 1.02rem;
   }
   .riga {
     border-bottom: 1px solid #eee;
-    padding: 14px 0;
+    padding: 16px 0;
   }
   .riga:last-child { border-bottom: none; }
   .riga-alto {
@@ -61,38 +62,71 @@
     align-items: baseline;
     gap: 10px;
   }
-  .riga-data { color: #999; font-size: 0.82rem; }
-  .riga-descrizione { font-weight: 700; margin-top: 2px; }
-  .riga-importo { font-family: 'Baloo 2', sans-serif; font-size: 1.05rem; white-space: nowrap; }
+  .riga-data { color: #777; font-size: 0.9rem; }
+  .riga-descrizione { font-weight: 700; margin-top: 4px; font-size: 1.05rem; }
+  .riga-importo { font-family: 'Baloo 2', sans-serif; font-size: 1.15rem; white-space: nowrap; }
   .importo-piu { color: var(--verde); }
   .importo-meno { color: #c0392b; }
-  .riga-saldo { color: #aaa; font-size: 0.78rem; text-align: right; margin-top: 2px; }
+  .riga-saldo { color: #888; font-size: 0.85rem; text-align: right; margin-top: 4px; }
   .nota {
-    font-size: 0.85rem;
-    color: #777;
-    margin-top: 6px;
+    font-size: 0.92rem;
+    color: #555;
+    margin-top: 8px;
     background: var(--crema);
     border-radius: 10px;
-    padding: 6px 10px;
+    padding: 8px 12px;
   }
   .prodotti-link {
     display: inline-block;
-    margin-top: 6px;
-    font-size: 0.85rem;
+    margin-top: 8px;
+    font-size: 0.92rem;
     color: var(--verde);
     cursor: pointer;
     text-decoration: underline;
+    font-weight: 600;
+  }
+  .risparmio {
+    margin-top: 6px;
+    font-size: 0.92rem;
+    color: var(--verde);
+    font-weight: 700;
   }
   .prodotti-lista {
     display: none;
-    margin-top: 8px;
-    font-size: 0.85rem;
+    margin-top: 10px;
+    font-size: 0.94rem;
+    background: var(--crema);
+    border-radius: 10px;
+    padding: 10px 12px;
   }
-  .prodotti-lista div { padding: 3px 0; display: flex; justify-content: space-between; }
+  .riga-prodotto {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    gap: 10px;
+    border-bottom: 1px dashed #e5ddd0;
+  }
+  .riga-prodotto:last-child { border-bottom: none; }
+  .riga-prodotto-nome { flex: 1; }
+  .riga-prodotto-prezzi { white-space: nowrap; text-align: right; }
+  .prezzo-listino {
+    text-decoration: line-through;
+    color: #bbb;
+    margin-right: 8px;
+    font-size: 0.8em;
+  }
+  .prezzo-netto {
+    text-decoration: line-through;
+    color: #aaa;
+    margin-right: 8px;
+    font-size: 0.88em;
+  }
+  .prezzo-scontato { color: var(--verde); font-weight: 700; }
   .badge-ritirato {
     display: inline-block;
-    margin-top: 6px;
-    font-size: 0.8rem;
+    margin-top: 8px;
+    font-size: 0.88rem;
     color: var(--verde);
     font-weight: 700;
   }
@@ -103,7 +137,8 @@
     margin-top: 18px;
     color: #999;
     text-decoration: underline;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
+    cursor: pointer;
   }
   #caricamento { text-align: center; color: #999; margin-top: 40px; }
 </style>
@@ -181,10 +216,53 @@ function disegnaRighe(righe) {
     }
 
     if (r.dettaglio_prodotti && r.dettaglio_prodotti.length) {
+      let risparmioOfferta = 0;
+      let risparmioRegalo = 0;
+      let listinoDisponibile = true;
+
+      r.dettaglio_prodotti.forEach(p => {
+        const qta = Number(p.quantita) || 1;
+        const listinoUnit = Number(p.prezzo_listino);
+        const netto = Number(p.prezzo_netto) || 0;
+        const scontato = Number(p.prezzo_scontato ?? p.prezzo_netto) || 0;
+
+        if (!isNaN(listinoUnit) && listinoUnit > 0) {
+          risparmioOfferta += (listinoUnit * qta) - netto;
+        } else {
+          listinoDisponibile = false;
+        }
+        risparmioRegalo += (netto - scontato);
+      });
+
       html += '<div class="prodotti-link" onclick="toggleProdotti(' + r.id + ')">Vedi ' + r.dettaglio_prodotti.length + ' prodotti acquistati ▾</div>';
+
+      if (listinoDisponibile && risparmioOfferta > 0.001) {
+        html += '<div class="risparmio">💰 Sconto offerta fornitore: -' + formattaEuro(risparmioOfferta) + '</div>';
+      }
+      if (risparmioRegalo > 0.001) {
+        html += '<div class="risparmio">🎁 Regalo della referente: -' + formattaEuro(risparmioRegalo) + '</div>';
+      }
+
       html += '<div class="prodotti-lista" id="prodotti-' + r.id + '">';
       r.dettaglio_prodotti.forEach(p => {
-        html += '<div><span>' + (p.prodotto || "") + (p.formato ? " (" + p.formato + ")" : "") + (p.quantita ? " x" + p.quantita : "") + '</span><span>' + formattaEuro(p.prezzo_scontato ?? p.prezzo_netto) + '</span></div>';
+        const qta = Number(p.quantita) || 1;
+        const listinoUnit = Number(p.prezzo_listino);
+        const listinoTotale = (!isNaN(listinoUnit) && listinoUnit > 0) ? listinoUnit * qta : null;
+        const netto = Number(p.prezzo_netto) || 0;
+        const scontato = Number(p.prezzo_scontato ?? p.prezzo_netto) || 0;
+        const nomeProdotto = (p.prodotto || "") + (p.formato ? " (" + p.formato + ")" : "") + (p.quantita ? " x" + p.quantita : "");
+
+        html += '<div class="riga-prodotto">';
+        html += '<div class="riga-prodotto-nome">' + nomeProdotto + '</div>';
+        html += '<div class="riga-prodotto-prezzi">';
+        if (listinoTotale !== null && listinoTotale > netto + 0.001) {
+          html += '<span class="prezzo-listino">' + formattaEuro(listinoTotale) + '</span>';
+        }
+        if (netto > scontato + 0.001) {
+          html += '<span class="prezzo-netto">' + formattaEuro(netto) + '</span>';
+        }
+        html += '<span class="prezzo-scontato">' + formattaEuro(scontato) + '</span>';
+        html += '</div></div>';
       });
       html += '</div>';
     }
