@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TuttoInsieme - La mia cassa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #6a9c78;
+    --crema: #fdf8f0;
+    --terra: #b5651d;
+    --testo: #3a3a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #eef3ea, #fdf8f0);
+    font-family: 'Nunito', sans-serif;
+    color: var(--testo);
+    padding: 20px;
+  }
+  .contenitore { max-width: 480px; margin: 0 auto; }
+  .intestazione {
+    background: var(--verde);
+    color: white;
+    border-radius: 24px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+  }
+  .intestazione h1 {
+    font-family: 'Baloo 2', sans-serif;
+    margin: 0 0 4px;
+    font-size: 1.4rem;
+  }
+  .intestazione .saldo {
+    font-family: 'Baloo 2', sans-serif;
+    font-size: 2rem;
+    margin-top: 8px;
+  }
+  .scontrino {
+    background: #fff;
+    border-radius: 24px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    margin-top: 16px;
+    padding: 8px 20px;
+    max-height: 65vh;
+    overflow-y: auto;
+  }
+  .riga {
+    border-bottom: 1px solid #eee;
+    padding: 14px 0;
+  }
+  .riga:last-child { border-bottom: none; }
+  .riga-alto {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .riga-data { color: #999; font-size: 0.82rem; }
+  .riga-descrizione { font-weight: 700; margin-top: 2px; }
+  .riga-importo { font-family: 'Baloo 2', sans-serif; font-size: 1.05rem; white-space: nowrap; }
+  .importo-piu { color: var(--verde); }
+  .importo-meno { color: #c0392b; }
+  .riga-saldo { color: #aaa; font-size: 0.78rem; text-align: right; margin-top: 2px; }
+  .nota {
+    font-size: 0.85rem;
+    color: #777;
+    margin-top: 6px;
+    background: var(--crema);
+    border-radius: 10px;
+    padding: 6px 10px;
+  }
+  .prodotti-link {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--verde);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .prodotti-lista {
+    display: none;
+    margin-top: 8px;
+    font-size: 0.85rem;
+  }
+  .prodotti-lista div { padding: 3px 0; display: flex; justify-content: space-between; }
+  .badge-ritirato {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: var(--verde);
+    font-weight: 700;
+  }
+  .vuoto { text-align: center; color: #999; padding: 30px 0; }
+  .esci {
+    display: block;
+    text-align: center;
+    margin-top: 18px;
+    color: #999;
+    text-decoration: underline;
+    font-size: 0.9rem;
+  }
+  #caricamento { text-align: center; color: #999; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<div class="contenitore">
+  <div id="caricamento">Carico la tua cassa...</div>
+
+  <div id="pagina" style="display:none;">
+    <div class="intestazione">
+      <h1 id="nomeSocio"></h1>
+      <div class="saldo" id="saldoAttuale"></div>
+    </div>
+
+    <div class="scontrino" id="scontrino"></div>
+
+    <a class="esci" onclick="esci()">Esci</a>
+  </div>
+</div>
+
+<script>
+const TOKEN_KEY = "ti_token";
+
+function formattaEuro(n) {
+  const numero = Number(n) || 0;
+  const segno = numero < 0 ? "-" : "";
+  return segno + "€" + Math.abs(numero).toFixed(2).replace(".", ",");
+}
+
+function formattaDataItaliana(iso) {
+  if (!iso) return "";
+  const [a, m, g] = iso.split("-");
+  return g + "/" + m + "/" + a;
+}
+
+function esci() {
+  localStorage.removeItem(TOKEN_KEY);
+  window.location.href = "index.html";
+}
+
+function toggleProdotti(id) {
+  const el = document.getElementById("prodotti-" + id);
+  el.style.display = el.style.display === "block" ? "none" : "block";
+}
+
+function disegnaRighe(righe) {
+  const contenitore = document.getElementById("scontrino");
+
+  if (!righe.length) {
+    contenitore.innerHTML = '<div class="vuoto">Nessun movimento registrato.</div>';
+    return;
+  }
+
+  let html = "";
+  righe.forEach(r => {
+    const isVersamento = r.tipo === "versamento";
+    const classeImporto = isVersamento ? "importo-piu" : "importo-meno";
+    const segno = isVersamento ? "+" : "-";
+
+    html += '<div class="riga">';
+    html += '<div class="riga-alto">';
+    html += '<div><div class="riga-data">' + formattaDataItaliana(r.data) + '</div>';
+    html += '<div class="riga-descrizione">' + r.descrizione + '</div></div>';
+    html += '<div class="riga-importo ' + classeImporto + '">' + segno + formattaEuro(r.importo_totale) + '</div>';
+    html += '</div>';
+    html += '<div class="riga-saldo">saldo: ' + formattaEuro(r.saldo_dopo) + '</div>';
+
+    if (!isVersamento && r.lettera) {
+      html += '<div class="nota">' + r.lettera;
+      if (r.nome_progetto) html += ' · ' + r.nome_progetto;
+      if (r.didascalia) html += ' — ' + r.didascalia;
+      if (r.maggiorazione > 0) html += ' (+' + formattaEuro(r.maggiorazione) + ')';
+      html += '</div>';
+    }
+
+    if (r.dettaglio_prodotti && r.dettaglio_prodotti.length) {
+      html += '<div class="prodotti-link" onclick="toggleProdotti(' + r.id + ')">Vedi ' + r.dettaglio_prodotti.length + ' prodotti acquistati ▾</div>';
+      html += '<div class="prodotti-lista" id="prodotti-' + r.id + '">';
+      r.dettaglio_prodotti.forEach(p => {
+        html += '<div><span>' + (p.prodotto || "") + (p.formato ? " (" + p.formato + ")" : "") + (p.quantita ? " x" + p.quantita : "") + '</span><span>' + formattaEuro(p.prezzo_scontato ?? p.prezzo_netto) + '</span></div>';
+      });
+      html += '</div>';
+    }
+
+    if (!isVersamento && r.ritirato === 1) {
+      html += '<div class="badge-ritirato">✓ Ritirato</div>';
+    }
+
+    html += '</div>';
+  });
+
+  contenitore.innerHTML = html;
+  contenitore.scrollTop = contenitore.scrollHeight;
+}
+
+async function caricaCassa() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  const risposta = await fetch("/api/cassa-socio", {
+    headers: { "Authorization": "Bearer " + token }
+  });
+
+  if (risposta.status === 401) {
+    localStorage.removeItem(TOKEN_KEY);
+    window.location.href = "index.html";
+    return;
+  }
+
+  const dati = await risposta.json();
+
+  document.getElementById("nomeSocio").textContent = dati.nome;
+  document.getElementById("saldoAttuale").textContent = formattaEuro(dati.saldo_attuale);
+  disegnaRighe(dati.righe);
+
+  document.getElementById("caricamento").style.display = "none";
+  document.getElementById("pagina").style.display = "block";
+}
+
+caricaCassa();
+</script>
+
+</body>
+</html>
