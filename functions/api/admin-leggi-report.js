@@ -32,9 +32,10 @@ function testoInNumero(testo) {
 
 // Legge un CSV di report (formato "REPORT ORDINI") e restituisce un elenco
 // di { nome_scritto, totale, prodotti } per ogni socio che ha ordinato
-// qualcosa. "prodotti" contiene, per ogni articolo, il prezzo già scontato
-// del 4% (colonna G) — quello che il socio deve chiedere a chi divide
-// con lui la spesa. Ignora i blocchi vuoti ("— —" oppure totale mancante).
+// qualcosa. "prodotti" contiene, per ogni articolo, il prezzo di listino
+// (colonna D), il prezzo netto dopo lo sconto offerta del fornitore
+// (colonna F) e il prezzo già scontato del 4% regalo referente (colonna G).
+// Ignora i blocchi vuoti ("— —" oppure totale mancante).
 function interpretaReportCsv(testoCsv) {
   const righe = testoCsv.split("\n").map((r) => r.trim());
   const risultati = [];
@@ -86,11 +87,13 @@ function interpretaReportCsv(testoCsv) {
     if (nomeCorrente && secondaColonna && secondaColonna !== "(nessun prodotto ordinato)") {
       const prezzoScontato = testoInNumero((colonne[6] || "").trim());
       const prezzoNetto = testoInNumero((colonne[5] || "").trim());
+      const prezzoListino = testoInNumero(quartaColonna);
       prodottiCorrente.push({
         codice: primaColonna,
         prodotto: secondaColonna,
         formato: (colonne[2] || "").trim(),
         quantita: (colonne[4] || "").trim(),
+        prezzo_listino: prezzoListino,
         prezzo_netto: prezzoNetto,
         prezzo_scontato: prezzoScontato !== null ? prezzoScontato : prezzoNetto,
       });
