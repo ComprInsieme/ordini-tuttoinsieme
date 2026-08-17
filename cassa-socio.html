@@ -12,6 +12,7 @@
     --crema: #fdf8f0;
     --terra: #b5651d;
     --testo: #3a3a3a;
+    --bordo-tabella: #d9d2c3;
   }
   * { box-sizing: border-box; }
   body {
@@ -23,6 +24,9 @@
     padding: 20px;
   }
   .contenitore { max-width: 540px; margin: 0 auto; }
+  @media (min-width: 640px) {
+    .contenitore { max-width: 760px; }
+  }
   .intestazione {
     background: var(--verde);
     color: white;
@@ -76,53 +80,33 @@
     border-radius: 10px;
     padding: 8px 12px;
   }
-  .prodotti-link {
-    display: inline-block;
-    margin-top: 8px;
-    font-size: 0.92rem;
-    color: var(--verde);
-    cursor: pointer;
-    text-decoration: underline;
-    font-weight: 600;
-  }
-  .risparmio {
-    margin-top: 6px;
-    font-size: 0.92rem;
-    color: var(--verde);
-    font-weight: 700;
-  }
-  .prodotti-lista {
-    display: none;
+  .tabella-prodotti {
+    width: 100%;
+    border-collapse: collapse;
     margin-top: 10px;
-    font-size: 0.94rem;
+    font-size: 0.92rem;
+  }
+  .tabella-prodotti th,
+  .tabella-prodotti td {
+    border: 1px solid var(--bordo-tabella);
+    padding: 8px;
+  }
+  .tabella-prodotti th {
     background: var(--crema);
-    border-radius: 10px;
-    padding: 10px 12px;
+    font-weight: 700;
+    text-align: left;
   }
-  .riga-prodotto {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
-    gap: 10px;
-    border-bottom: 1px dashed #e5ddd0;
+  .tabella-prodotti th.numero,
+  .tabella-prodotti td.numero {
+    text-align: right;
+    white-space: nowrap;
   }
-  .riga-prodotto:last-child { border-bottom: none; }
-  .riga-prodotto-nome { flex: 1; }
-  .riga-prodotto-prezzi { white-space: nowrap; text-align: right; }
-  .prezzo-listino {
-    text-decoration: line-through;
-    color: #bbb;
-    margin-right: 8px;
-    font-size: 0.8em;
+  .tabella-prodotti tfoot td {
+    background: var(--crema);
+    font-weight: 700;
+    cursor: pointer;
   }
-  .prezzo-netto {
-    text-decoration: line-through;
-    color: #aaa;
-    margin-right: 8px;
-    font-size: 0.88em;
-  }
-  .prezzo-scontato { color: var(--verde); font-weight: 700; }
+  .freccia-tendina { display: inline-block; margin-right: 6px; }
   .badge-ritirato {
     display: inline-block;
     margin-top: 8px;
@@ -180,9 +164,12 @@ function esci() {
   window.location.href = "index.html";
 }
 
-function toggleProdotti(id) {
-  const el = document.getElementById("prodotti-" + id);
-  el.style.display = el.style.display === "block" ? "none" : "block";
+function toggleTabella(id) {
+  const tbody = document.getElementById("corpo-" + id);
+  const freccia = document.getElementById("freccia-" + id);
+  const aperta = tbody.style.display === "table-row-group";
+  tbody.style.display = aperta ? "none" : "table-row-group";
+  freccia.textContent = aperta ? "▾" : "▴";
 }
 
 function disegnaRighe(righe) {
@@ -216,8 +203,9 @@ function disegnaRighe(righe) {
     }
 
     if (r.dettaglio_prodotti && r.dettaglio_prodotti.length) {
-      let risparmioOfferta = 0;
-      let risparmioRegalo = 0;
+      let totaleListino = 0;
+      let totaleOfferta = 0;
+      let totaleRegalo = 0;
       let listinoDisponibile = true;
 
       r.dettaglio_prodotti.forEach(p => {
@@ -227,23 +215,23 @@ function disegnaRighe(righe) {
         const scontato = Number(p.prezzo_scontato ?? p.prezzo_netto) || 0;
 
         if (!isNaN(listinoUnit) && listinoUnit > 0) {
-          risparmioOfferta += (listinoUnit * qta) - netto;
+          totaleListino += listinoUnit * qta;
         } else {
           listinoDisponibile = false;
         }
-        risparmioRegalo += (netto - scontato);
+        totaleOfferta += netto;
+        totaleRegalo += scontato;
       });
 
-      html += '<div class="prodotti-link" onclick="toggleProdotti(' + r.id + ')">Vedi ' + r.dettaglio_prodotti.length + ' prodotti acquistati ▾</div>';
+      html += '<table class="tabella-prodotti">';
+      html += '<thead><tr>';
+      html += '<th>Prodotto</th>';
+      html += '<th class="numero">Listino</th>';
+      html += '<th class="numero">Offerta fornitore</th>';
+      html += '<th class="numero">Regalo referente</th>';
+      html += '</tr></thead>';
 
-      if (listinoDisponibile && risparmioOfferta > 0.001) {
-        html += '<div class="risparmio">💰 Sconto offerta fornitore: -' + formattaEuro(risparmioOfferta) + '</div>';
-      }
-      if (risparmioRegalo > 0.001) {
-        html += '<div class="risparmio">🎁 Regalo della referente: -' + formattaEuro(risparmioRegalo) + '</div>';
-      }
-
-      html += '<div class="prodotti-lista" id="prodotti-' + r.id + '">';
+      html += '<tbody id="corpo-' + r.id + '" style="display:none;">';
       r.dettaglio_prodotti.forEach(p => {
         const qta = Number(p.quantita) || 1;
         const listinoUnit = Number(p.prezzo_listino);
@@ -252,19 +240,23 @@ function disegnaRighe(righe) {
         const scontato = Number(p.prezzo_scontato ?? p.prezzo_netto) || 0;
         const nomeProdotto = (p.prodotto || "") + (p.formato ? " (" + p.formato + ")" : "") + (p.quantita ? " x" + p.quantita : "");
 
-        html += '<div class="riga-prodotto">';
-        html += '<div class="riga-prodotto-nome">' + nomeProdotto + '</div>';
-        html += '<div class="riga-prodotto-prezzi">';
-        if (listinoTotale !== null && listinoTotale > netto + 0.001) {
-          html += '<span class="prezzo-listino">' + formattaEuro(listinoTotale) + '</span>';
-        }
-        if (netto > scontato + 0.001) {
-          html += '<span class="prezzo-netto">' + formattaEuro(netto) + '</span>';
-        }
-        html += '<span class="prezzo-scontato">' + formattaEuro(scontato) + '</span>';
-        html += '</div></div>';
+        html += '<tr>';
+        html += '<td>' + nomeProdotto + '</td>';
+        html += '<td class="numero">' + (listinoTotale !== null ? formattaEuro(listinoTotale) : "–") + '</td>';
+        html += '<td class="numero">' + formattaEuro(netto) + '</td>';
+        html += '<td class="numero">' + formattaEuro(scontato) + '</td>';
+        html += '</tr>';
       });
-      html += '</div>';
+      html += '</tbody>';
+
+      html += '<tfoot><tr onclick="toggleTabella(' + r.id + ')">';
+      html += '<td><span class="freccia-tendina" id="freccia-' + r.id + '">▾</span>' + r.dettaglio_prodotti.length + ' prodotti</td>';
+      html += '<td class="numero">' + (listinoDisponibile ? formattaEuro(totaleListino) : "–") + '</td>';
+      html += '<td class="numero">' + formattaEuro(totaleOfferta) + '</td>';
+      html += '<td class="numero">' + formattaEuro(totaleRegalo) + '</td>';
+      html += '</tr></tfoot>';
+
+      html += '</table>';
     }
 
     if (!isVersamento && r.ritirato === 1) {
